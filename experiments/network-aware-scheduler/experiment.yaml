@@ -158,11 +158,12 @@ tools:
               subnet_mask: 24
               labels:
                 - nodepool=management
+                - topology.kubernetes.io/zone=zone-a
               taints:
                 - ManagementOnly=true:NoSchedule
 
   schedulerPlugins:
-    enabled: true
+    enabled: false
     chart: /opt/experiment-executor/charts/scheduler-plugins
     release: scheduler-plugins
     namespace: scheduler-plugins
@@ -212,11 +213,16 @@ tools:
     namespace: kube-system
     interval: 30s
     dryRun: false
+    values:
+      image:
+        repository: ghcr.io/unict-cclab/descheduler
+        tag: sophos-v0.0.2
+        pullPolicy: IfNotPresent
     policy:
       apiVersion: "descheduler/v1alpha2"
       kind: "DeschedulerPolicy"
       maxNoOfPodsToEvictPerNode: 1
-      maxNoOfPodsToEvictTotal: 2
+      maxNoOfPodsToEvictTotal: 1
       profiles:
         - name: "local-min-pod-lifetime"
           pluginConfig:
@@ -225,31 +231,28 @@ tools:
                 podProtections:
                   defaultDisabled:
                     - "PodsWithLocalStorage"
-            - name: "PodLifeTime"
+            - name: "HighNetworkCost"
               args:
-                maxPodLifeTimeSeconds: 60
-                states:
-                  - "Running"
+                minPodAgeSeconds: 60
+                minCommunicationCost: 0
+                minCostImprovement: 0
                 namespaces:
                   include:
                     - "default"
                 labelSelector:
-                  matchExpressions:
-                    - key: component
-                      operator: NotIn
-                      values:
-                        - node-proxy
+                  matchLabels:
+                    group: onlineboutique
           plugins:
             deschedule:
               enabled:
-                - "PodLifeTime"
+                - "HighNetworkCost"
 
   application:
     name: onlineboutique
     template: ../../../apps/onlineboutique/templates/manifest.yaml.tmpl
     namespace: default
     group: onlineboutique
-    schedulerName: scheduler-plugins-scheduler
+    # schedulerName defaults to default-scheduler while schedulerPlugins is disabled.
     minReplicas: 2
     proxyNodes: all
     proxyNodePort: 30080
@@ -259,7 +262,7 @@ tools:
     nodeGroupLabel: topology.kubernetes.io/zone
     nodeSelector: nodepool=app
     networkInterface: flannel.1
-    crossZoneLatency: 50ms
+    crossZoneLatency: 100ms
     jitter: 0ms
     correlation: "0"
 
@@ -267,14 +270,19 @@ tools:
     config:
       name: onlineboutique
       locustfile: ../../../apps/onlineboutique/locustfile.py
-      warmup_s: 60
+      warmup_s: 10
       sample_interval_s: 1
       slo_ms: 250
-      p95_window_s: 5
+      p95_window_s: 30
       pattern:
-        type: constant
-        rps: 30
-        duration: 15m
+        type: mixed
+        parts:
+          - type: constant
+            rps: 30
+            duration: 5m
+          - type: constant
+            rps: 30
+            duration: 5m
       zone_distribution:
         type: mixed
         parts:
@@ -287,10 +295,6 @@ tools:
             primary_zone: zone-a
             start_spread: 0
             end_spread: 1
-          - type: constant
-            duration: 5m
-            primary_zone: zone-b
-            spread: 0.2
       kubernetes:
         enabled: true
         namespace: default

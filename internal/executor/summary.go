@@ -2,6 +2,7 @@ package executor
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -35,6 +36,9 @@ func aggregateRunSummaries(experiment *config.Experiment) error {
 		}
 		flattenNumeric("", document, values)
 		successful++
+	}
+	if successful == 0 {
+		return fmt.Errorf("no run summaries found: all %d runs may have failed", experiment.Runs)
 	}
 	metrics := make(map[string]float64, len(values))
 	for name, samples := range values {
