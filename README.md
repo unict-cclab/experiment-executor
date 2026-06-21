@@ -67,11 +67,25 @@ without an additional interactive prompt because that destructive policy is
 explicit in the experiment.
 
 The host network gives the container direct access to Proxmox and the
-Kubernetes API. If proxmox-k3s needs SSH credentials, add this mount to the
-`docker run` command inside the helper:
+Kubernetes API. If proxmox-k3s needs SSH credentials, mount the key directory
+into the container and point `ssh_key_path` at the mounted path in the
+experiment config.
+
+For a key at `$HOME/.proxmox-k3s/id_ed25519`, add this mount to the `docker
+run` command inside the helper:
 
 ```bash
--v "$HOME/.ssh:/tmp/.ssh:ro" \
+-v "$HOME/.proxmox-k3s:/tmp/.proxmox-k3s:ro" \
+```
+
+And set the corresponding field under `tools.proxmoxK3s.config` in the
+experiment file:
+
+```yaml
+tools:
+  proxmoxK3s:
+    config:
+      ssh_key_path: /tmp/.proxmox-k3s/id_ed25519
 ```
 
 Experiment inputs, templates, Locust files, kubeconfigs, and results remain in
