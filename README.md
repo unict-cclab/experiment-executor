@@ -170,6 +170,12 @@ An experiment configures:
 - the application template, namespace, group, scheduler, and proxy-node selection;
 - the inline Load Gen configuration used to generate traffic and per-run plots.
 
+Application workers can optionally be generated from `tools.proxmoxK3s.applicationPool`.
+Each zone specifies a node count, first static IP, and resources; addresses are
+allocated sequentially and generated nodes receive `nodepool=app` plus the
+standard topology zone label. When load-gen defines `zone_distribution`, the
+executor attaches discovered zones to app-node proxy endpoints automatically.
+
 It also selects a cluster lifecycle:
 
 ```yaml

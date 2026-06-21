@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -52,7 +53,33 @@ type ToolConfig struct {
 }
 
 type ProxmoxK3sConfig struct {
-	Config map[string]any `yaml:"config" json:"config"`
+	Config          map[string]any         `yaml:"config" json:"config"`
+	ApplicationPool *ApplicationPoolConfig `yaml:"applicationPool,omitempty" json:"applicationPool,omitempty"`
+}
+
+type ApplicationPoolConfig struct {
+	NamePrefix string                  `yaml:"namePrefix" json:"namePrefix"`
+	Defaults   ApplicationNodeDefaults `yaml:"defaults" json:"defaults"`
+	Zones      []ApplicationZoneConfig `yaml:"zones" json:"zones"`
+}
+
+type ApplicationNodeDefaults struct {
+	Template    string `yaml:"template" json:"template"`
+	ProxmoxNode string `yaml:"proxmoxNode" json:"proxmoxNode"`
+	Storage     string `yaml:"storage" json:"storage"`
+	DiskSize    int    `yaml:"diskSize" json:"diskSize"`
+	Gateway     string `yaml:"gateway" json:"gateway"`
+	DNS         string `yaml:"dns" json:"dns"`
+	SubnetMask  int    `yaml:"subnetMask" json:"subnetMask"`
+}
+
+type ApplicationZoneConfig struct {
+	Name     string `yaml:"name" json:"name"`
+	Count    int    `yaml:"count" json:"count"`
+	IPStart  string `yaml:"ipStart" json:"ipStart"`
+	Cores    int    `yaml:"cores" json:"cores"`
+	Memory   int    `yaml:"memory" json:"memory"`
+	DiskSize int    `yaml:"diskSize,omitempty" json:"diskSize,omitempty"`
 }
 
 func (c ProxmoxK3sConfig) MonAgent() MonAgentConfig {
@@ -222,6 +249,9 @@ func applyDefaults(experiment *Experiment) {
 	if experiment.Lifecycle.Cluster == "" {
 		experiment.Lifecycle.Cluster = ClusterLifecycleExisting
 	}
+	if pool := experiment.Tools.ProxmoxK3s.ApplicationPool; pool != nil && pool.NamePrefix == "" {
+		pool.NamePrefix = "app"
+	}
 	if experiment.Tools.Application.Namespace == "" {
 		experiment.Tools.Application.Namespace = "default"
 	}
@@ -309,6 +339,31 @@ func (experiment *Experiment) validateTools(prefix string, tools ToolConfig) []s
 
 	if len(tools.ProxmoxK3s.Config) == 0 {
 		problems = append(problems, prefix+".proxmoxK3s.config is required")
+	}
+	if pool := tools.ProxmoxK3s.ApplicationPool; pool != nil {
+		if !validName.MatchString(pool.NamePrefix) {
+			problems = append(problems, prefix+".proxmoxK3s.applicationPool.namePrefix must be a lowercase DNS-style name")
+		}
+		if pool.Defaults.Template == "" || pool.Defaults.ProxmoxNode == "" || pool.Defaults.Storage == "" || pool.Defaults.Gateway == "" || pool.Defaults.DNS == "" || pool.Defaults.DiskSize < 1 || pool.Defaults.SubnetMask < 1 || pool.Defaults.SubnetMask > 32 {
+			problems = append(problems, prefix+".proxmoxK3s.applicationPool.defaults is incomplete")
+		}
+		seenZones := map[string]bool{}
+		for i, zone := range pool.Zones {
+			field := fmt.Sprintf("%s.proxmoxK3s.applicationPool.zones[%d]", prefix, i)
+			if !validName.MatchString(zone.Name) || seenZones[zone.Name] {
+				problems = append(problems, field+".name must be unique and DNS-style")
+			}
+			seenZones[zone.Name] = true
+			if zone.Count < 1 || zone.Cores < 1 || zone.Memory < 1 {
+				problems = append(problems, field+" count, cores, and memory must be positive")
+			}
+			if ip := net.ParseIP(zone.IPStart); ip == nil || ip.To4() == nil {
+				problems = append(problems, field+".ipStart must be an IPv4 address")
+			}
+		}
+		if len(pool.Zones) == 0 {
+			problems = append(problems, prefix+".proxmoxK3s.applicationPool.zones must not be empty")
+		}
 	}
 	if tools.SchedulerPlugins.Enabled {
 		if tools.SchedulerPlugins.Chart == "" {

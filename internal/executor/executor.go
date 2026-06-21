@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -56,6 +57,8 @@ type runFiles struct {
 type nodeInfo struct {
 	Name       string
 	InternalIP string
+	Zone       string
+	Pool       string
 	Worker     bool
 }
 
@@ -259,6 +262,9 @@ func (r *Runner) prepareProxmoxConfig(experiment config.Experiment, files *runFi
 	if err != nil {
 		return err
 	}
+	if err := expandApplicationPool(value, experiment.Tools.ProxmoxK3s.ApplicationPool); err != nil {
+		return err
+	}
 	clusters, ok := value["clusters"].([]any)
 	if !ok || len(clusters) != 1 {
 		return errors.New("proxmoxK3s.config.clusters must contain exactly one cluster")
@@ -389,7 +395,14 @@ func (r *Runner) prepareNamespace(ctx context.Context, experiment config.Experim
 
 func (r *Runner) nodes(ctx context.Context, experiment config.Experiment, files runFiles) ([]nodeInfo, error) {
 	if r.options.DryRun {
-		return declaredNodes(experiment.Tools.ProxmoxK3s.Config), nil
+		value, err := cloneMap(experiment.Tools.ProxmoxK3s.Config)
+		if err != nil {
+			return nil, err
+		}
+		if err := expandApplicationPool(value, experiment.Tools.ProxmoxK3s.ApplicationPool); err != nil {
+			return nil, err
+		}
+		return declaredNodes(value), nil
 	}
 	output, err := exec.CommandContext(ctx, r.kubectl(), "--kubeconfig", files.kubeconfig, "get", "nodes", "-o", "json").Output()
 	if err != nil {
@@ -414,7 +427,7 @@ func (r *Runner) nodes(ctx context.Context, experiment config.Experiment, files 
 	}
 	var nodes []nodeInfo
 	for _, item := range document.Items {
-		node := nodeInfo{Name: item.Metadata.Name, Worker: true}
+		node := nodeInfo{Name: item.Metadata.Name, Zone: item.Metadata.Labels["topology.kubernetes.io/zone"], Pool: item.Metadata.Labels["nodepool"], Worker: true}
 		if _, ok := item.Metadata.Labels["node-role.kubernetes.io/control-plane"]; ok {
 			node.Worker = false
 		}
@@ -540,6 +553,7 @@ func (r *Runner) prepareLoadGen(ctx context.Context, experiment config.Experimen
 		nodePort = service.Spec.Ports[0].NodePort
 	}
 	var endpoints []any
+	_, zoneDistribution := value["zone_distribution"]
 	for _, node := range nodes {
 		if node.InternalIP == "" {
 			continue
@@ -547,7 +561,14 @@ func (r *Runner) prepareLoadGen(ctx context.Context, experiment config.Experimen
 		if experiment.Tools.Application.ProxyNodes == "workers" && !node.Worker {
 			continue
 		}
-		endpoints = append(endpoints, map[string]any{"url": fmt.Sprintf("http://%s:%d", node.InternalIP, nodePort)})
+		if zoneDistribution && (node.Pool != "app" || node.Zone == "") {
+			continue
+		}
+		endpoint := map[string]any{"url": fmt.Sprintf("http://%s:%d", node.InternalIP, nodePort)}
+		if node.Zone != "" {
+			endpoint["zone"] = node.Zone
+		}
+		endpoints = append(endpoints, endpoint)
 	}
 	if len(endpoints) == 0 {
 		return errors.New("no node-proxy endpoints discovered")
@@ -651,6 +672,53 @@ func cloneMap(value map[string]any) (map[string]any, error) {
 	return result, nil
 }
 
+func expandApplicationPool(value map[string]any, pool *config.ApplicationPoolConfig) error {
+	if pool == nil {
+		return nil
+	}
+	clusters, _ := value["clusters"].([]any)
+	if len(clusters) != 1 {
+		return errors.New("applicationPool requires exactly one proxmox cluster")
+	}
+	cluster, _ := clusters[0].(map[string]any)
+	workers, _ := cluster["workers"].([]any)
+	usedNames, usedIPs := map[string]bool{}, map[string]bool{}
+	for _, raw := range workers {
+		worker, _ := raw.(map[string]any)
+		name, _ := worker["name"].(string)
+		ip, _ := worker["ip"].(string)
+		usedNames[name], usedIPs[ip] = true, true
+	}
+	for _, zone := range pool.Zones {
+		start := net.ParseIP(zone.IPStart).To4()
+		if start == nil {
+			return fmt.Errorf("applicationPool zone %s has invalid ipStart %q", zone.Name, zone.IPStart)
+		}
+		for index := 0; index < zone.Count; index++ {
+			ipValue := uint32(start[0])<<24 | uint32(start[1])<<16 | uint32(start[2])<<8 | uint32(start[3])
+			ipValue += uint32(index)
+			ip := fmt.Sprintf("%d.%d.%d.%d", byte(ipValue>>24), byte(ipValue>>16), byte(ipValue>>8), byte(ipValue))
+			name := fmt.Sprintf("%s-%s-%02d", pool.NamePrefix, zone.Name, index+1)
+			if usedNames[name] || usedIPs[ip] {
+				return fmt.Errorf("generated application node collision: name=%s ip=%s", name, ip)
+			}
+			diskSize := zone.DiskSize
+			if diskSize == 0 {
+				diskSize = pool.Defaults.DiskSize
+			}
+			workers = append(workers, map[string]any{
+				"name": name, "template": pool.Defaults.Template, "proxmox_node": pool.Defaults.ProxmoxNode,
+				"cores": zone.Cores, "memory": zone.Memory, "disk_size": diskSize, "storage": pool.Defaults.Storage,
+				"ip": ip, "gateway": pool.Defaults.Gateway, "dns": pool.Defaults.DNS, "subnet_mask": pool.Defaults.SubnetMask,
+				"labels": []any{"nodepool=app", "topology.kubernetes.io/zone=" + zone.Name}, "taints": []any{},
+			})
+			usedNames[name], usedIPs[ip] = true, true
+		}
+	}
+	cluster["workers"] = workers
+	return nil
+}
+
 func declaredNodes(proxmoxConfig map[string]any) []nodeInfo {
 	clusters, _ := proxmoxConfig["clusters"].([]any)
 	if len(clusters) == 0 {
@@ -667,7 +735,18 @@ func declaredNodes(proxmoxConfig map[string]any) []nodeInfo {
 			item, _ := raw.(map[string]any)
 			name, _ := item["name"].(string)
 			ip, _ := item["ip"].(string)
-			result = append(result, nodeInfo{Name: name, InternalIP: ip, Worker: section.worker})
+			zone, pool := "", ""
+			labels, _ := item["labels"].([]any)
+			for _, rawLabel := range labels {
+				label, _ := rawLabel.(string)
+				if strings.HasPrefix(label, "topology.kubernetes.io/zone=") {
+					zone = strings.TrimPrefix(label, "topology.kubernetes.io/zone=")
+				}
+				if strings.HasPrefix(label, "nodepool=") {
+					pool = strings.TrimPrefix(label, "nodepool=")
+				}
+			}
+			result = append(result, nodeInfo{Name: name, InternalIP: ip, Zone: zone, Pool: pool, Worker: section.worker})
 		}
 	}
 	return result

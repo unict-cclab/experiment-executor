@@ -84,3 +84,19 @@ func TestDryRunRendersArtifactsWithoutExternalCommands(t *testing.T) {
 		t.Fatalf("status = %q", state.Status)
 	}
 }
+
+func TestExpandApplicationPoolUsesSequentialStaticAddresses(t *testing.T) {
+	value := map[string]any{"clusters": []any{map[string]any{"workers": []any{map[string]any{"name": "management", "ip": "192.0.2.10"}}}}}
+	pool := &config.ApplicationPoolConfig{
+		NamePrefix: "app",
+		Defaults:   config.ApplicationNodeDefaults{Template: "ubuntu", ProxmoxNode: "pve", Storage: "zfs", DiskSize: 40, Gateway: "192.0.2.1", DNS: "192.0.2.2", SubnetMask: 24},
+		Zones:      []config.ApplicationZoneConfig{{Name: "zone-a", Count: 2, IPStart: "192.0.2.20", Cores: 4, Memory: 8192}},
+	}
+	if err := expandApplicationPool(value, pool); err != nil {
+		t.Fatal(err)
+	}
+	nodes := declaredNodes(value)
+	if len(nodes) != 3 || nodes[1].Name != "app-zone-a-01" || nodes[1].InternalIP != "192.0.2.20" || nodes[2].InternalIP != "192.0.2.21" || nodes[2].Zone != "zone-a" || nodes[2].Pool != "app" {
+		t.Fatalf("expanded nodes = %#v", nodes)
+	}
+}

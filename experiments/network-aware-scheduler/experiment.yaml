@@ -12,6 +12,27 @@ lifecycle:
   cluster: reuse
 tools:
   proxmoxK3s:
+    applicationPool:
+      namePrefix: app
+      defaults:
+        template: ubuntu-24.04-template
+        proxmoxNode: pve
+        storage: zfs-pool
+        diskSize: 40
+        gateway: 192.168.1.254
+        dns: 208.67.222.222
+        subnetMask: 24
+      zones:
+        - name: zone-a
+          count: 2
+          ipStart: 192.168.1.65
+          cores: 4
+          memory: 16384
+        - name: zone-b
+          count: 2
+          ipStart: 192.168.1.67
+          cores: 4
+          memory: 16384
     config:
       ssh_key_path: /tmp/.proxmox-k3s/id_ed25519
       proxmox:
@@ -139,66 +160,6 @@ tools:
                 - nodepool=management
               taints:
                 - ManagementOnly=true:NoSchedule
-            - name: app-01
-              template: ubuntu-24.04-template
-              proxmox_node: pve
-              cores: 4
-              memory: 16384
-              disk_size: 40
-              storage: zfs-pool
-              ip: 192.168.1.65
-              gateway: 192.168.1.254
-              dns: 208.67.222.222
-              subnet_mask: 24
-              labels:
-                - nodepool=app
-                - topology.kubernetes.io/zone=zone-a
-              taints: []
-            - name: app-02
-              template: ubuntu-24.04-template
-              proxmox_node: pve
-              cores: 4
-              memory: 16384
-              disk_size: 40
-              storage: zfs-pool
-              ip: 192.168.1.66
-              gateway: 192.168.1.254
-              dns: 208.67.222.222
-              subnet_mask: 24
-              labels:
-                - nodepool=app
-                - topology.kubernetes.io/zone=zone-a
-              taints: []
-            - name: app-03
-              template: ubuntu-24.04-template
-              proxmox_node: pve
-              cores: 4
-              memory: 16384
-              disk_size: 40
-              storage: zfs-pool
-              ip: 192.168.1.67
-              gateway: 192.168.1.254
-              dns: 208.67.222.222
-              subnet_mask: 24
-              labels:
-                - nodepool=app
-                - topology.kubernetes.io/zone=zone-b
-              taints: []
-            - name: app-04
-              template: ubuntu-24.04-template
-              proxmox_node: pve
-              cores: 4
-              memory: 16384
-              disk_size: 40
-              storage: zfs-pool
-              ip: 192.168.1.68
-              gateway: 192.168.1.254
-              dns: 208.67.222.222
-              subnet_mask: 24
-              labels:
-                - nodepool=app
-                - topology.kubernetes.io/zone=zone-b
-              taints: []
 
   schedulerPlugins:
     enabled: true
@@ -314,6 +275,22 @@ tools:
         type: constant
         rps: 30
         duration: 15m
+      zone_distribution:
+        type: mixed
+        parts:
+          - type: constant
+            duration: 5m
+            primary_zone: zone-a
+            spread: 0
+          - type: linear
+            duration: 5m
+            primary_zone: zone-a
+            start_spread: 0
+            end_spread: 1
+          - type: constant
+            duration: 5m
+            primary_zone: zone-b
+            spread: 0.2
       kubernetes:
         enabled: true
         namespace: default
