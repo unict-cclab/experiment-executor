@@ -11,7 +11,7 @@ RUN CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags="-s -w" -o /out/ex
 FROM python:3.12-slim-bookworm AS runtime-tools
 
 ARG TARGETARCH
-ARG PROXMOX_K3S_VERSION=v1.0.0
+ARG PROXMOX_K3S_VERSION=v1.0.2
 ARG LOAD_GEN_REF=v0.0.5
 ARG SCHEDULER_PLUGINS_REF=sophos-v0.2.0
 ARG DESCHEDULER_REF=sophos-v0.0.1

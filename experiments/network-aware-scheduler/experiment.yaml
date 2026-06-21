@@ -107,7 +107,7 @@ tools:
               promql_range: 5m
             mentat:
               enabled: true
-              version: v0.2.0
+              version: v0.2.1
               sleep_seconds: 5
 
           control_plane:

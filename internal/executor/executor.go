@@ -306,6 +306,10 @@ func (r *Runner) configureObservability(ctx context.Context, experiment config.E
 		}
 	}
 	if experiment.Tools.ProxmoxK3s.Mentat().Enabled {
+		mentatRules := `{"rules":[{"apiGroups":[""],"resources":["pods"],"verbs":["get","list","watch"]}]}`
+		if err := r.command(ctx, files, "mentat-rbac", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "patch", "clusterrole", "mentat", "--type=merge", "-p", mentatRules); err != nil {
+			return err
+		}
 		image := "ghcr.io/unict-cclab/mentat:" + experiment.Tools.ProxmoxK3s.Mentat().Version
 		if err := r.command(ctx, files, "mentat-image", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "image", "daemonset/mentat", "mentat="+image); err != nil {
 			return err
