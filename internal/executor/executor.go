@@ -450,6 +450,8 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 		"schedulerName": experiment.Tools.Application.SchedulerName,
 		"group":         experiment.Tools.Application.Group,
 		"proxyNodes":    selected,
+		"minReplicas":   experiment.Tools.Application.MinReplicas,
+		"proxyNodePort": experiment.Tools.Application.ProxyNodePort,
 	}
 	if err := tmpl.ExecuteTemplate(file, filepath.Base(templatePath), values); err != nil {
 		return fmt.Errorf("rendering application template: %w", err)

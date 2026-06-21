@@ -107,6 +107,8 @@ type ApplicationConfig struct {
 	Group         string `yaml:"group" json:"group"`
 	SchedulerName string `yaml:"schedulerName" json:"schedulerName"`
 	ProxyNodes    string `yaml:"proxyNodes" json:"proxyNodes"`
+	MinReplicas   int    `yaml:"minReplicas" json:"minReplicas"`
+	ProxyNodePort int    `yaml:"proxyNodePort" json:"proxyNodePort"`
 }
 
 type LoadGenConfig struct {

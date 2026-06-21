@@ -291,7 +291,9 @@ tools:
     namespace: default
     group: onlineboutique
     schedulerName: scheduler-plugins-scheduler
+    minReplicas: 2
     proxyNodes: all
+    proxyNodePort: 30080
 
   chaosInjector:
     enabled: true
