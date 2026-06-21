@@ -1,0 +1,6 @@
+/bin/
+/.cache/
+/results/
+/experiments/*/config/
+/experiments/*/runs/
+/experiments/*/summary.json
