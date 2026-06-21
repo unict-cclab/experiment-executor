@@ -91,6 +91,7 @@ type DeschedulerConfig struct {
 type ChaosInjectorConfig struct {
 	Enabled            bool   `yaml:"enabled" json:"enabled"`
 	NodeGroupLabel     string `yaml:"nodeGroupLabel" json:"nodeGroupLabel"`
+	NodeSelector       string `yaml:"nodeSelector" json:"nodeSelector"`
 	CrossZoneLatency   string `yaml:"crossZoneLatency" json:"crossZoneLatency"`
 	CrossZoneBandwidth string `yaml:"crossZoneBandwidth" json:"crossZoneBandwidth"`
 	BandwidthLimit     int    `yaml:"bandwidthLimit" json:"bandwidthLimit"`

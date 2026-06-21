@@ -296,6 +296,7 @@ tools:
   chaosInjector:
     enabled: true
     nodeGroupLabel: topology.kubernetes.io/zone
+    nodeSelector: nodepool=app
     crossZoneLatency: 50ms
     crossZoneBandwidth: 10mbps
     jitter: 0ms

@@ -11,11 +11,11 @@ RUN CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags="-s -w" -o /out/ex
 FROM python:3.12-slim-bookworm AS runtime-tools
 
 ARG TARGETARCH
-ARG PROXMOX_K3S_VERSION=v0.9.0
+ARG PROXMOX_K3S_VERSION=v1.0.0
 ARG LOAD_GEN_REF=v0.0.1
 ARG SCHEDULER_PLUGINS_REF=sophos-v0.2.0
 ARG DESCHEDULER_REF=sophos-v0.0.1
-ARG CHAOS_INJECTOR_REF=v0.0.1
+ARG CHAOS_INJECTOR_REF=v0.0.2
 ARG KUBECTL_VERSION=v1.36.0
 ARG HELM_VERSION=v3.18.4
 
@@ -55,7 +55,7 @@ RUN set -eux; \
     mkdir -p /opt/experiment-executor/bin /opt/experiment-executor/charts; \
     cp -a /tmp/scheduler-plugins/manifests/install/charts/as-a-second-scheduler /opt/experiment-executor/charts/scheduler-plugins; \
     rm /opt/experiment-executor/charts/scheduler-plugins/crds; \
-    cp -r /tmp/scheduler-plugins/manifests/crds /opt/experiment-executor/charts/scheduler-plugins/crds; \
+    cp -rL /tmp/scheduler-plugins/manifests/crds /opt/experiment-executor/charts/scheduler-plugins/crds; \
     cp -a /tmp/descheduler/charts/descheduler /opt/experiment-executor/charts/descheduler; \
     cp /tmp/chaos-injector/chaos-injector.sh /opt/experiment-executor/bin/chaos-injector; \
     chmod +x /opt/experiment-executor/bin/chaos-injector; \

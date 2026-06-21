@@ -357,6 +357,7 @@ func (r *Runner) deployChaos(ctx context.Context, experiment config.Experiment, 
 		"BANDWIDTH_BUFFER=" + strconv.Itoa(chaos.BandwidthBuffer),
 		"JITTER=" + chaos.Jitter,
 		"CORRELATION=" + chaos.Correlation,
+		"NODE_SELECTOR=" + chaos.NodeSelector,
 	}
 	return r.commandEnv(ctx, files, "chaos-deploy", nil, env, r.chaosInjector(), "deploy", files.chaosManifest)
 }
