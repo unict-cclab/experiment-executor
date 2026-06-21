@@ -1,0 +1,318 @@
+name: network-aware-scheduler
+runs: 1
+
+commands:
+  proxmoxK3s: proxmox-k3s
+  kubectl: kubectl
+  helm: helm
+  chaosInjector: /opt/experiment-executor/bin/chaos-injector
+  loadGen: load-gen
+
+lifecycle:
+  cluster: reuse
+tools:
+  proxmoxK3s:
+    config:
+      proxmox:
+        api_url: https://192.168.1.52:8006/api2/json
+        token_id: root@pam!am
+        token_secret: REDACTED
+        insecure_tls: true
+
+      template:
+        name: ubuntu-24.04-template
+        proxmox_node: pve
+        storage: zfs-pool
+        image_storage: local
+        os: ubuntu-24.04
+        bridge: vmbr0
+        ip: 192.168.1.60
+        gateway: 192.168.1.254
+        dns: 208.67.222.222
+        subnet_mask: 24
+        clone_parallelism: 1
+
+      registry:
+        vm:
+          name: harbor
+          proxmox_node: pve
+          cores: 4
+          memory: 8192
+          disk_size: 80
+          ip: 192.168.1.61
+          gateway: 192.168.1.254
+          dns: 208.67.222.222
+          subnet_mask: 24
+        harbor:
+          hostname: 192.168.1.61
+          admin_password: Harbor12345
+          data_volume: /data
+          http_port: 80
+
+      nfs:
+        vm:
+          name: nfs-server
+          proxmox_node: pve
+          cores: 2
+          memory: 2048
+          disk_size: 100
+          ip: 192.168.1.62
+          gateway: 192.168.1.254
+          dns: 208.67.222.222
+          subnet_mask: 24
+        data_dir: /data/nfs
+        export_subnet: 192.168.1.0/24
+
+      clusters:
+        - name: ctx-cluster-01
+          kubeconfig_path: ../../../kubeconfig-ctx-cluster-01
+          pod_cidr: 10.42.0.0/16
+          service_cidr: 10.43.0.0/16
+          k3s:
+            version: v1.36.0+k3s1
+            extra_server_args: "--disable=traefik --disable=servicelb"
+          addons:
+            cilium:
+              enabled: false
+            monitoring:
+              enabled: true
+              prometheus_node_port: 32090
+              grafana_node_port: 32000
+              grafana_admin_password: "admin"
+            cluster_lens:
+              enabled: true
+            logging:
+              enabled: true
+              retention: 1d
+            istio:
+              enabled: true
+            jaeger:
+              enabled: true
+              storage_class: local-path
+              storage_size: 10Gi
+            registry:
+              hostname: 192.168.1.61
+              http_port: 80
+            nfs:
+              enabled: true
+              server: 192.168.1.62
+              data_dir: /data/nfs
+            chaos_mesh:
+              enabled: true
+
+          control_plane:
+            - name: cp-01
+              template: ubuntu-24.04-template
+              proxmox_node: pve
+              cores: 2
+              memory: 4096
+              disk_size: 40
+              storage: zfs-pool
+              ip: 192.168.1.63
+              gateway: 192.168.1.254
+              dns: 208.67.222.222
+              subnet_mask: 24
+
+          workers:
+            - name: management
+              template: ubuntu-24.04-template
+              proxmox_node: pve
+              cores: 4
+              memory: 16384
+              disk_size: 40
+              storage: zfs-pool
+              ip: 192.168.1.64
+              gateway: 192.168.1.254
+              dns: 208.67.222.222
+              subnet_mask: 24
+              labels:
+                - nodepool=management
+              taints:
+                - ManagementOnly=true:NoSchedule
+            - name: app-01
+              template: ubuntu-24.04-template
+              proxmox_node: pve
+              cores: 4
+              memory: 16384
+              disk_size: 40
+              storage: zfs-pool
+              ip: 192.168.1.65
+              gateway: 192.168.1.254
+              dns: 208.67.222.222
+              subnet_mask: 24
+              labels:
+                - nodepool=app
+                - topology.kubernetes.io/zone=zone-a
+              taints: []
+            - name: app-02
+              template: ubuntu-24.04-template
+              proxmox_node: pve
+              cores: 4
+              memory: 16384
+              disk_size: 40
+              storage: zfs-pool
+              ip: 192.168.1.66
+              gateway: 192.168.1.254
+              dns: 208.67.222.222
+              subnet_mask: 24
+              labels:
+                - nodepool=app
+                - topology.kubernetes.io/zone=zone-a
+              taints: []
+            - name: app-03
+              template: ubuntu-24.04-template
+              proxmox_node: pve
+              cores: 4
+              memory: 16384
+              disk_size: 40
+              storage: zfs-pool
+              ip: 192.168.1.67
+              gateway: 192.168.1.254
+              dns: 208.67.222.222
+              subnet_mask: 24
+              labels:
+                - nodepool=app
+                - topology.kubernetes.io/zone=zone-b
+              taints: []
+            - name: app-04
+              template: ubuntu-24.04-template
+              proxmox_node: pve
+              cores: 4
+              memory: 16384
+              disk_size: 40
+              storage: zfs-pool
+              ip: 192.168.1.68
+              gateway: 192.168.1.254
+              dns: 208.67.222.222
+              subnet_mask: 24
+              labels:
+                - nodepool=app
+                - topology.kubernetes.io/zone=zone-b
+              taints: []
+
+  monAgent:
+    enabled: true
+    version: v0.0.5
+    scrapeInterval: 30s
+    metricsRange: 5m
+
+  mentat:
+    enabled: true
+    version: v0.2.0
+    probeInterval: 5s
+
+  schedulerPlugins:
+    enabled: true
+    chart: /opt/experiment-executor/charts/scheduler-plugins
+    release: scheduler-plugins
+    namespace: scheduler-plugins
+    values:
+      scheduler:
+        name: scheduler-plugins-scheduler
+        image: ghcr.io/unict-cclab/kube-scheduler:sophos-v0.2.0
+        replicaCount: 1
+        leaderElect: false
+        affinity:
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                - key: nodepool
+                  operator: In
+                  values:
+                  - management
+        tolerations: []
+      controller:
+        name: scheduler-plugins-controller
+        image: registry.k8s.io/scheduler-plugins/controller:v0.29.7
+        replicaCount: 1 
+        affinity:
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                - key: nodepool
+                  operator: In
+                  values:
+                  - management
+        tolerations: []
+      plugins:
+        enabled:
+          #- NetworkAware
+          - LoadAwareResourcesBalancedAllocation
+        disabled: []
+      pluginConfig: []
+
+  descheduler:
+    enabled: true
+    chart: /opt/experiment-executor/charts/descheduler
+    release: descheduler
+    namespace: kube-system
+    interval: 30s
+    dryRun: false
+    policy:
+      apiVersion: "descheduler/v1alpha2"
+      kind: "DeschedulerPolicy"
+      maxNoOfPodsToEvictPerNode: 1
+      maxNoOfPodsToEvictTotal: 2
+      profiles:
+        - name: "local-min-pod-lifetime"
+          pluginConfig:
+            - name: "DefaultEvictor"
+              args:
+                podProtections:
+                  defaultDisabled:
+                    - "PodsWithLocalStorage"
+            - name: "PodLifeTime"
+              args:
+                maxPodLifeTimeSeconds: 60
+                states:
+                  - "Running"
+                namespaces:
+                  include:
+                    - "default"
+                labelSelector:
+                  matchExpressions:
+                    - key: component
+                      operator: NotIn
+                      values:
+                        - node-proxy
+          plugins:
+            deschedule:
+              enabled:
+                - "PodLifeTime"
+
+  application:
+    name: onlineboutique
+    template: ../../../apps/onlineboutique/templates/manifest.yaml.tmpl
+    namespace: default
+    group: onlineboutique
+    schedulerName: scheduler-plugins-scheduler
+    proxyNodes: all
+
+  chaosInjector:
+    enabled: true
+    nodeGroupLabel: topology.kubernetes.io/zone
+    crossZoneLatency: 50ms
+    crossZoneBandwidth: 10mbps
+    jitter: 0ms
+    correlation: "0"
+
+  loadGen:
+    config:
+      name: onlineboutique
+      locustfile: ../../../apps/onlineboutique/locustfile.py
+      sample_interval_s: 1
+      slo_ms: 250
+      p95_window_s: 5
+      pattern:
+        type: constant
+        rps: 30
+        duration: 15m
+      kubernetes:
+        enabled: true
+        namespace: default
+        sample_interval_s: 5
+        selector: group=onlineboutique
