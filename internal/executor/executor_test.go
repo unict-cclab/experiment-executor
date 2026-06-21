@@ -84,13 +84,3 @@ func TestDryRunRendersArtifactsWithoutExternalCommands(t *testing.T) {
 		t.Fatalf("status = %q", state.Status)
 	}
 }
-
-func TestSummarizeUsesSampleStandardDeviation(t *testing.T) {
-	got := summarize([]float64{10, 20, 30})
-	if got.Count != 3 || got.Mean != 20 || got.Min != 10 || got.Max != 30 {
-		t.Fatalf("summary = %#v", got)
-	}
-	if got.SampleStdDeviation != 10 {
-		t.Fatalf("sample standard deviation = %v", got.SampleStdDeviation)
-	}
-}

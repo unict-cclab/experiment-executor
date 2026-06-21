@@ -77,7 +77,7 @@ func phasesFor(experiment config.Experiment, runNumber int) []string {
 	case "", config.ClusterLifecycleExisting:
 		result = append(result, "validate-cluster-access", "reset-experiment-resources")
 	}
-	if experiment.Tools.MonAgent.Enabled || experiment.Tools.Mentat.Enabled {
+	if experiment.Tools.ProxmoxK3s.MonAgent().Enabled || experiment.Tools.ProxmoxK3s.Mentat().Enabled {
 		result = append(result, "configure-observability")
 	}
 	if experiment.Tools.SchedulerPlugins.Enabled {

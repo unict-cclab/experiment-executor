@@ -2,7 +2,6 @@ package executor
 
 import (
 	"encoding/json"
-	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -10,18 +9,10 @@ import (
 	"github.com/unict-cclab/experiment-executor/internal/config"
 )
 
-type aggregateMetric struct {
-	Count              int     `json:"count"`
-	Mean               float64 `json:"mean"`
-	SampleStdDeviation float64 `json:"sampleStdDeviation"`
-	Min                float64 `json:"min"`
-	Max                float64 `json:"max"`
-}
-
 type experimentSummary struct {
-	Experiment     string                     `json:"experiment"`
-	SuccessfulRuns int                        `json:"successfulRuns"`
-	Metrics        map[string]aggregateMetric `json:"metrics"`
+	Experiment     string             `json:"experiment"`
+	SuccessfulRuns int                `json:"successfulRuns"`
+	Metrics        map[string]float64 `json:"metrics"`
 }
 
 func aggregateRunSummaries(experiment *config.Experiment) error {
@@ -45,9 +36,13 @@ func aggregateRunSummaries(experiment *config.Experiment) error {
 		flattenNumeric("", document, values)
 		successful++
 	}
-	metrics := make(map[string]aggregateMetric, len(values))
+	metrics := make(map[string]float64, len(values))
 	for name, samples := range values {
-		metrics[name] = summarize(samples)
+		var sum float64
+		for _, v := range samples {
+			sum += v
+		}
+		metrics[name] = sum / float64(len(samples))
 	}
 	summary := experimentSummary{Experiment: experiment.Name, SuccessfulRuns: successful, Metrics: metrics}
 	return writeJSON(filepath.Join(experiment.SourceDir, "summary.json"), summary)
@@ -73,23 +68,6 @@ func flattenNumeric(prefix string, value any, result map[string][]float64) {
 	}
 }
 
-func summarize(values []float64) aggregateMetric {
-	result := aggregateMetric{Count: len(values), Min: values[0], Max: values[0]}
-	for _, value := range values {
-		result.Mean += value
-		result.Min = math.Min(result.Min, value)
-		result.Max = math.Max(result.Max, value)
-	}
-	result.Mean /= float64(len(values))
-	if len(values) > 1 {
-		for _, value := range values {
-			delta := value - result.Mean
-			result.SampleStdDeviation += delta * delta
-		}
-		result.SampleStdDeviation = math.Sqrt(result.SampleStdDeviation / float64(len(values)-1))
-	}
-	return result
-}
 
 func formatRunID(runNumber int) string {
 	return "run-" + leftPad(runNumber, 3)

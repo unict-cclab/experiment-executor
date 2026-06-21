@@ -100,6 +100,15 @@ tools:
               data_dir: /data/nfs
             chaos_mesh:
               enabled: true
+            mon_agent:
+              enabled: true
+              version: v0.0.5
+              scrape_period_seconds: 30
+              promql_range: 5m
+            mentat:
+              enabled: true
+              version: v0.2.0
+              sleep_seconds: 5
 
           control_plane:
             - name: cp-01
@@ -190,17 +199,6 @@ tools:
                 - nodepool=app
                 - topology.kubernetes.io/zone=zone-b
               taints: []
-
-  monAgent:
-    enabled: true
-    version: v0.0.5
-    scrapeInterval: 30s
-    metricsRange: 5m
-
-  mentat:
-    enabled: true
-    version: v0.2.0
-    probeInterval: 5s
 
   schedulerPlugins:
     enabled: true
@@ -299,8 +297,8 @@ tools:
     enabled: true
     nodeGroupLabel: topology.kubernetes.io/zone
     nodeSelector: nodepool=app
+    networkInterface: flannel.1
     crossZoneLatency: 50ms
-    crossZoneBandwidth: 10mbps
     jitter: 0ms
     correlation: "0"
 

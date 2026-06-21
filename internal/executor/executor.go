@@ -280,20 +280,6 @@ func (r *Runner) prepareProxmoxConfig(experiment config.Experiment, files *runFi
 			}
 		}
 		cluster["kubeconfig_path"] = files.kubeconfig
-		addons := ensureMap(cluster, "addons")
-		monAgent := ensureMap(addons, "mon_agent")
-		monAgent["enabled"] = experiment.Tools.MonAgent.Enabled
-		if experiment.Tools.MonAgent.Enabled {
-			monAgent["version"] = experiment.Tools.MonAgent.Version
-			monAgent["scrape_period_seconds"] = durationSeconds(experiment.Tools.MonAgent.ScrapeInterval)
-			monAgent["promql_range"] = experiment.Tools.MonAgent.MetricsRange
-		}
-		mentat := ensureMap(addons, "mentat")
-		mentat["enabled"] = experiment.Tools.Mentat.Enabled
-		if experiment.Tools.Mentat.Enabled {
-			mentat["version"] = experiment.Tools.Mentat.Version
-			mentat["sleep_seconds"] = durationSeconds(experiment.Tools.Mentat.ProbeInterval)
-		}
 	}
 	return writeYAML(files.proxmoxConfig, value)
 }
@@ -310,21 +296,21 @@ func (r *Runner) configureObservability(ctx context.Context, experiment config.E
 	if r.options.DryRun {
 		return r.command(ctx, files, "observability", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "get", "namespace", "observability")
 	}
-	if experiment.Tools.MonAgent.Enabled {
-		image := "ghcr.io/unict-cclab/mon-agent:" + experiment.Tools.MonAgent.Version
+	if experiment.Tools.ProxmoxK3s.MonAgent().Enabled {
+		image := "ghcr.io/unict-cclab/mon-agent:" + experiment.Tools.ProxmoxK3s.MonAgent().Version
 		if err := r.command(ctx, files, "mon-agent-image", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "image", "deployment/mon-agent", "mon-agent="+image); err != nil {
 			return err
 		}
-		if err := r.command(ctx, files, "mon-agent-config", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "env", "deployment/mon-agent", "SCRAPE_PERIOD_SECONDS="+strconv.Itoa(durationSeconds(experiment.Tools.MonAgent.ScrapeInterval)), "PROMQL_RANGE="+experiment.Tools.MonAgent.MetricsRange); err != nil {
+		if err := r.command(ctx, files, "mon-agent-config", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "env", "deployment/mon-agent", "SCRAPE_PERIOD_SECONDS="+strconv.Itoa(durationSeconds(experiment.Tools.ProxmoxK3s.MonAgent().ScrapeInterval)), "PROMQL_RANGE="+experiment.Tools.ProxmoxK3s.MonAgent().MetricsRange); err != nil {
 			return err
 		}
 	}
-	if experiment.Tools.Mentat.Enabled {
-		image := "ghcr.io/unict-cclab/mentat:" + experiment.Tools.Mentat.Version
+	if experiment.Tools.ProxmoxK3s.Mentat().Enabled {
+		image := "ghcr.io/unict-cclab/mentat:" + experiment.Tools.ProxmoxK3s.Mentat().Version
 		if err := r.command(ctx, files, "mentat-image", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "image", "daemonset/mentat", "mentat="+image); err != nil {
 			return err
 		}
-		if err := r.command(ctx, files, "mentat-config", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "env", "daemonset/mentat", "SLEEP_SECONDS="+strconv.Itoa(durationSeconds(experiment.Tools.Mentat.ProbeInterval))); err != nil {
+		if err := r.command(ctx, files, "mentat-config", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "env", "daemonset/mentat", "SLEEP_SECONDS="+strconv.Itoa(durationSeconds(experiment.Tools.ProxmoxK3s.Mentat().ProbeInterval))); err != nil {
 			return err
 		}
 	}
@@ -341,7 +327,10 @@ func (r *Runner) installScheduler(ctx context.Context, experiment config.Experim
 
 func (r *Runner) resetResources(ctx context.Context, experiment config.Experiment, files runFiles) error {
 	if experiment.Tools.ChaosInjector.Enabled {
-		if err := r.command(ctx, files, "chaos-reset", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "networkchaos", "-n", experiment.Tools.Application.Namespace, "-l", "app.kubernetes.io/managed-by=node-latency-chaos-injector", "--ignore-not-found"); err != nil {
+		if err := r.command(ctx, files, "chaos-reset", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "networkchaos", "--all-namespaces", "-l", "app.kubernetes.io/managed-by=node-latency-chaos-injector", "--ignore-not-found"); err != nil {
+			return err
+		}
+		if err := r.command(ctx, files, "chaos-shaper-reset", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "daemonset", "-n", "chaos-mesh", "-l", "app.kubernetes.io/managed-by=node-latency-chaos-injector", "--ignore-not-found"); err != nil {
 			return err
 		}
 	}
@@ -361,23 +350,15 @@ func (r *Runner) resetResources(ctx context.Context, experiment config.Experimen
 
 func (r *Runner) deployChaos(ctx context.Context, experiment config.Experiment, files runFiles) error {
 	chaos := experiment.Tools.ChaosInjector
-	observerNamespace := ""
-	if experiment.Tools.Mentat.Enabled {
-		observerNamespace = "observability"
-	}
 	env := []string{
 		"KUBECONFIG=" + files.kubeconfig,
 		"KUBECTL=" + r.kubectl(),
-		"WORKLOAD_NAMESPACE=" + experiment.Tools.Application.Namespace,
 		"NODE_GROUP_LABEL=" + chaos.NodeGroupLabel,
+		"NODE_SELECTOR=" + chaos.NodeSelector,
+		"NETWORK_INTERFACE=" + chaos.NetworkInterface,
 		"CROSS_ZONE_LATENCY=" + chaos.CrossZoneLatency,
-		"CROSS_ZONE_BANDWIDTH=" + chaos.CrossZoneBandwidth,
-		"BANDWIDTH_LIMIT=" + strconv.Itoa(chaos.BandwidthLimit),
-		"BANDWIDTH_BUFFER=" + strconv.Itoa(chaos.BandwidthBuffer),
 		"JITTER=" + chaos.Jitter,
 		"CORRELATION=" + chaos.Correlation,
-		"NODE_SELECTOR=" + chaos.NodeSelector,
-		"OBSERVER_NAMESPACE=" + observerNamespace,
 	}
 	return r.commandEnv(ctx, files, "chaos-deploy", nil, env, r.chaosInjector(), "deploy", files.chaosManifest)
 }

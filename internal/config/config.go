@@ -44,8 +44,6 @@ type ExperimentLifecycle struct {
 
 type ToolConfig struct {
 	ProxmoxK3s       ProxmoxK3sConfig       `yaml:"proxmoxK3s" json:"proxmoxK3s"`
-	MonAgent         MonAgentConfig         `yaml:"monAgent" json:"monAgent"`
-	Mentat           MentatConfig           `yaml:"mentat" json:"mentat"`
 	SchedulerPlugins SchedulerPluginsConfig `yaml:"schedulerPlugins" json:"schedulerPlugins"`
 	Descheduler      DeschedulerConfig      `yaml:"descheduler" json:"descheduler"`
 	ChaosInjector    ChaosInjectorConfig    `yaml:"chaosInjector" json:"chaosInjector"`
@@ -57,17 +55,82 @@ type ProxmoxK3sConfig struct {
 	Config map[string]any `yaml:"config" json:"config"`
 }
 
+func (c ProxmoxK3sConfig) MonAgent() MonAgentConfig {
+	clusters, ok := c.Config["clusters"].([]any)
+	if !ok {
+		return MonAgentConfig{}
+	}
+	for _, rawCluster := range clusters {
+		cluster, ok := rawCluster.(map[string]any)
+		if !ok {
+			continue
+		}
+		addons, ok := cluster["addons"].(map[string]any)
+		if !ok {
+			continue
+		}
+		raw, ok := addons["mon_agent"].(map[string]any)
+		if !ok {
+			continue
+		}
+		cfg := MonAgentConfig{}
+		cfg.Enabled, _ = raw["enabled"].(bool)
+		cfg.Version, _ = raw["version"].(string)
+		cfg.MetricsRange, _ = raw["promql_range"].(string)
+		switch s := raw["scrape_period_seconds"].(type) {
+		case int:
+			cfg.ScrapeInterval = fmt.Sprintf("%ds", s)
+		case float64:
+			cfg.ScrapeInterval = fmt.Sprintf("%ds", int(s))
+		}
+		return cfg
+	}
+	return MonAgentConfig{}
+}
+
 type MonAgentConfig struct {
-	Enabled        bool   `yaml:"enabled" json:"enabled"`
-	Version        string `yaml:"version" json:"version"`
-	ScrapeInterval string `yaml:"scrapeInterval" json:"scrapeInterval"`
-	MetricsRange   string `yaml:"metricsRange" json:"metricsRange"`
+	Enabled        bool
+	Version        string
+	ScrapeInterval string
+	MetricsRange   string
+}
+
+func (c ProxmoxK3sConfig) Mentat() MentatConfig {
+	clusters, ok := c.Config["clusters"].([]any)
+	if !ok {
+		return MentatConfig{}
+	}
+	for _, rawCluster := range clusters {
+		cluster, ok := rawCluster.(map[string]any)
+		if !ok {
+			continue
+		}
+		addons, ok := cluster["addons"].(map[string]any)
+		if !ok {
+			continue
+		}
+		raw, ok := addons["mentat"].(map[string]any)
+		if !ok {
+			continue
+		}
+		cfg := MentatConfig{}
+		cfg.Enabled, _ = raw["enabled"].(bool)
+		cfg.Version, _ = raw["version"].(string)
+		switch s := raw["sleep_seconds"].(type) {
+		case int:
+			cfg.ProbeInterval = fmt.Sprintf("%ds", s)
+		case float64:
+			cfg.ProbeInterval = fmt.Sprintf("%ds", int(s))
+		}
+		return cfg
+	}
+	return MentatConfig{}
 }
 
 type MentatConfig struct {
-	Enabled       bool   `yaml:"enabled" json:"enabled"`
-	Version       string `yaml:"version" json:"version"`
-	ProbeInterval string `yaml:"probeInterval" json:"probeInterval"`
+	Enabled       bool
+	Version       string
+	ProbeInterval string
 }
 
 type SchedulerPluginsConfig struct {
@@ -90,26 +153,24 @@ type DeschedulerConfig struct {
 }
 
 type ChaosInjectorConfig struct {
-	Enabled            bool   `yaml:"enabled" json:"enabled"`
-	NodeGroupLabel     string `yaml:"nodeGroupLabel" json:"nodeGroupLabel"`
-	NodeSelector       string `yaml:"nodeSelector" json:"nodeSelector"`
-	CrossZoneLatency   string `yaml:"crossZoneLatency" json:"crossZoneLatency"`
-	CrossZoneBandwidth string `yaml:"crossZoneBandwidth" json:"crossZoneBandwidth"`
-	BandwidthLimit     int    `yaml:"bandwidthLimit" json:"bandwidthLimit"`
-	BandwidthBuffer    int    `yaml:"bandwidthBuffer" json:"bandwidthBuffer"`
-	Jitter             string `yaml:"jitter" json:"jitter"`
-	Correlation        string `yaml:"correlation" json:"correlation"`
+	Enabled          bool   `yaml:"enabled" json:"enabled"`
+	NodeGroupLabel   string `yaml:"nodeGroupLabel" json:"nodeGroupLabel"`
+	NodeSelector     string `yaml:"nodeSelector" json:"nodeSelector"`
+	NetworkInterface string `yaml:"networkInterface" json:"networkInterface"`
+	CrossZoneLatency string `yaml:"crossZoneLatency" json:"crossZoneLatency"`
+	Jitter           string `yaml:"jitter" json:"jitter"`
+	Correlation      string `yaml:"correlation" json:"correlation"`
 }
 
 type ApplicationConfig struct {
-	Name          string             `yaml:"name" json:"name"`
-	Template      string             `yaml:"template" json:"template"`
-	Namespace     string             `yaml:"namespace" json:"namespace"`
-	Group         string             `yaml:"group" json:"group"`
-	SchedulerName string             `yaml:"schedulerName" json:"schedulerName"`
-	ProxyNodes    string             `yaml:"proxyNodes" json:"proxyNodes"`
-	MinReplicas   int  `yaml:"minReplicas" json:"minReplicas"`
-	ProxyNodePort int  `yaml:"proxyNodePort" json:"proxyNodePort"`
+	Name          string `yaml:"name" json:"name"`
+	Template      string `yaml:"template" json:"template"`
+	Namespace     string `yaml:"namespace" json:"namespace"`
+	Group         string `yaml:"group" json:"group"`
+	SchedulerName string `yaml:"schedulerName" json:"schedulerName"`
+	ProxyNodes    string `yaml:"proxyNodes" json:"proxyNodes"`
+	MinReplicas   int    `yaml:"minReplicas" json:"minReplicas"`
+	ProxyNodePort int    `yaml:"proxyNodePort" json:"proxyNodePort"`
 }
 
 type LoadGenConfig struct {
@@ -198,14 +259,8 @@ func applyDefaults(experiment *Experiment) {
 	if chaos.CrossZoneLatency == "" {
 		chaos.CrossZoneLatency = "50ms"
 	}
-	if chaos.CrossZoneBandwidth == "" {
-		chaos.CrossZoneBandwidth = "10mbps"
-	}
-	if chaos.BandwidthLimit == 0 {
-		chaos.BandwidthLimit = 20971520
-	}
-	if chaos.BandwidthBuffer == 0 {
-		chaos.BandwidthBuffer = 10000
+	if chaos.NetworkInterface == "" {
+		chaos.NetworkInterface = "flannel.1"
 	}
 	if chaos.Jitter == "" {
 		chaos.Jitter = "0ms"
@@ -255,19 +310,6 @@ func (experiment *Experiment) validateTools(prefix string, tools ToolConfig) []s
 	if len(tools.ProxmoxK3s.Config) == 0 {
 		problems = append(problems, prefix+".proxmoxK3s.config is required")
 	}
-	if tools.MonAgent.Enabled {
-		if tools.MonAgent.Version == "" {
-			problems = append(problems, prefix+".monAgent.version is required when enabled")
-		}
-		requireDuration(prefix+".monAgent.scrapeInterval", tools.MonAgent.ScrapeInterval)
-		requireDuration(prefix+".monAgent.metricsRange", tools.MonAgent.MetricsRange)
-	}
-	if tools.Mentat.Enabled {
-		if tools.Mentat.Version == "" {
-			problems = append(problems, prefix+".mentat.version is required when enabled")
-		}
-		requireDuration(prefix+".mentat.probeInterval", tools.Mentat.ProbeInterval)
-	}
 	if tools.SchedulerPlugins.Enabled {
 		if tools.SchedulerPlugins.Chart == "" {
 			problems = append(problems, prefix+".schedulerPlugins.chart is required when enabled")
@@ -291,14 +333,8 @@ func (experiment *Experiment) validateTools(prefix string, tools ToolConfig) []s
 		if duration, err := time.ParseDuration(tools.ChaosInjector.Jitter); err != nil || duration < 0 {
 			problems = append(problems, prefix+".chaosInjector.jitter must be a non-negative duration")
 		}
-		if tools.ChaosInjector.CrossZoneBandwidth == "" {
-			problems = append(problems, prefix+".chaosInjector.crossZoneBandwidth is required when enabled")
-		}
-		if tools.ChaosInjector.BandwidthLimit < 1 || uint64(tools.ChaosInjector.BandwidthLimit) > uint64(^uint32(0)) {
-			problems = append(problems, prefix+".chaosInjector.bandwidthLimit must be between 1 and 4294967295")
-		}
-		if tools.ChaosInjector.BandwidthBuffer < 1 || uint64(tools.ChaosInjector.BandwidthBuffer) > uint64(^uint32(0)) {
-			problems = append(problems, prefix+".chaosInjector.bandwidthBuffer must be between 1 and 4294967295")
+		if strings.TrimSpace(tools.ChaosInjector.NetworkInterface) == "" {
+			problems = append(problems, prefix+".chaosInjector.networkInterface is required when enabled")
 		}
 	}
 	requireFile(prefix+".application.template", tools.Application.Template)
@@ -354,7 +390,7 @@ func (experiment *Experiment) RunsDir() string {
 
 func (tools ToolConfig) ApplicationNamespaceLabels() map[string]string {
 	labels := make(map[string]string)
-	if tools.MonAgent.Enabled {
+	if tools.ProxmoxK3s.MonAgent().Enabled {
 		labels["mon-agent/enabled"] = "true"
 	}
 	if istioEnabled(tools.ProxmoxK3s.Config) {

@@ -127,21 +127,21 @@ tools:
 		t.Fatalf("Load() error = %v", err)
 	}
 	chaos := experiment.Tools.ChaosInjector
-	if chaos.NodeGroupLabel != "topology.kubernetes.io/zone" || chaos.CrossZoneLatency != "50ms" || chaos.CrossZoneBandwidth != "10mbps" {
+	if chaos.NodeGroupLabel != "topology.kubernetes.io/zone" || chaos.NetworkInterface != "flannel.1" || chaos.CrossZoneLatency != "50ms" {
 		t.Fatalf("chaos defaults = %#v", chaos)
 	}
-	if chaos.BandwidthLimit != 20971520 || chaos.BandwidthBuffer != 10000 || chaos.Jitter != "0ms" || chaos.Correlation != "0" {
+	if chaos.Jitter != "0ms" || chaos.Correlation != "0" {
 		t.Fatalf("chaos defaults = %#v", chaos)
 	}
 }
 
 func TestApplicationNamespaceLabelsFollowEnabledAddons(t *testing.T) {
 	tools := ToolConfig{
-		MonAgent: MonAgentConfig{Enabled: true},
 		ProxmoxK3s: ProxmoxK3sConfig{Config: map[string]any{
 			"clusters": []any{map[string]any{
 				"addons": map[string]any{
-					"istio": map[string]any{"enabled": true},
+					"istio":     map[string]any{"enabled": true},
+					"mon_agent": map[string]any{"enabled": true},
 				},
 			}},
 		}},

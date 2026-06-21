@@ -166,7 +166,7 @@ An experiment configures:
 - Mentat version and network probe settings;
 - scheduler-plugins Helm chart plus inline Helm values;
 - inline descheduler policy, interval, and dry-run mode;
-- cross-zone chaos-injector latency, bandwidth, topology label, and shaping settings;
+- cross-zone chaos-injector latency, topology label, node selector, and network interface;
 - the application template, namespace, group, scheduler, and proxy-node selection;
 - the inline Load Gen configuration used to generate traffic and per-run plots.
 
