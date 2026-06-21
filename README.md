@@ -32,6 +32,7 @@ executor() {
   docker run --rm --network host \
     --user "$(id -u):$(id -g)" \
     -v "$WORKSPACE_ROOT:/workspace" \
+    -v "$HOME/.proxmox-k3s:/tmp/.proxmox-k3s:ro" \
     -w /workspace/experiment-executor \
     experiment-executor:local "$@"
 }
