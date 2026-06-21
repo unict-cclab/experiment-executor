@@ -54,6 +54,8 @@ RUN set -eux; \
     fetch_ref https://github.com/unict-cclab/chaos-injector.git "$CHAOS_INJECTOR_REF" /tmp/chaos-injector; \
     mkdir -p /opt/experiment-executor/bin /opt/experiment-executor/charts; \
     cp -a /tmp/scheduler-plugins/manifests/install/charts/as-a-second-scheduler /opt/experiment-executor/charts/scheduler-plugins; \
+    rm /opt/experiment-executor/charts/scheduler-plugins/crds; \
+    cp -r /tmp/scheduler-plugins/manifests/crds /opt/experiment-executor/charts/scheduler-plugins/crds; \
     cp -a /tmp/descheduler/charts/descheduler /opt/experiment-executor/charts/descheduler; \
     cp /tmp/chaos-injector/chaos-injector.sh /opt/experiment-executor/bin/chaos-injector; \
     chmod +x /opt/experiment-executor/bin/chaos-injector; \
