@@ -361,6 +361,10 @@ func (r *Runner) resetResources(ctx context.Context, experiment config.Experimen
 
 func (r *Runner) deployChaos(ctx context.Context, experiment config.Experiment, files runFiles) error {
 	chaos := experiment.Tools.ChaosInjector
+	observerNamespace := ""
+	if experiment.Tools.Mentat.Enabled {
+		observerNamespace = "observability"
+	}
 	env := []string{
 		"KUBECONFIG=" + files.kubeconfig,
 		"KUBECTL=" + r.kubectl(),
@@ -373,6 +377,7 @@ func (r *Runner) deployChaos(ctx context.Context, experiment config.Experiment, 
 		"JITTER=" + chaos.Jitter,
 		"CORRELATION=" + chaos.Correlation,
 		"NODE_SELECTOR=" + chaos.NodeSelector,
+		"OBSERVER_NAMESPACE=" + observerNamespace,
 	}
 	return r.commandEnv(ctx, files, "chaos-deploy", nil, env, r.chaosInjector(), "deploy", files.chaosManifest)
 }
