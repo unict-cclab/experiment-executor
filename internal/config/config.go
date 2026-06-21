@@ -38,7 +38,8 @@ type Experiment struct {
 }
 
 type ExperimentLifecycle struct {
-	Cluster string `yaml:"cluster" json:"cluster"`
+	Cluster        string `yaml:"cluster" json:"cluster"`
+	KubeconfigPath string `yaml:"kubeconfigPath" json:"kubeconfigPath"`
 }
 
 type ToolConfig struct {
@@ -101,14 +102,14 @@ type ChaosInjectorConfig struct {
 }
 
 type ApplicationConfig struct {
-	Name          string `yaml:"name" json:"name"`
-	Template      string `yaml:"template" json:"template"`
-	Namespace     string `yaml:"namespace" json:"namespace"`
-	Group         string `yaml:"group" json:"group"`
-	SchedulerName string `yaml:"schedulerName" json:"schedulerName"`
-	ProxyNodes    string `yaml:"proxyNodes" json:"proxyNodes"`
-	MinReplicas   int    `yaml:"minReplicas" json:"minReplicas"`
-	ProxyNodePort int    `yaml:"proxyNodePort" json:"proxyNodePort"`
+	Name          string             `yaml:"name" json:"name"`
+	Template      string             `yaml:"template" json:"template"`
+	Namespace     string             `yaml:"namespace" json:"namespace"`
+	Group         string             `yaml:"group" json:"group"`
+	SchedulerName string             `yaml:"schedulerName" json:"schedulerName"`
+	ProxyNodes    string             `yaml:"proxyNodes" json:"proxyNodes"`
+	MinReplicas   int  `yaml:"minReplicas" json:"minReplicas"`
+	ProxyNodePort int  `yaml:"proxyNodePort" json:"proxyNodePort"`
 }
 
 type LoadGenConfig struct {

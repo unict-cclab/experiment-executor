@@ -308,6 +308,7 @@ tools:
     config:
       name: onlineboutique
       locustfile: ../../../apps/onlineboutique/locustfile.py
+      warmup_s: 60
       sample_interval_s: 1
       slo_ms: 250
       p95_window_s: 5

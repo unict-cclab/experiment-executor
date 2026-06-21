@@ -89,6 +89,12 @@ func (r *Runner) runOne(ctx context.Context, experiment config.Experiment, plann
 	if err != nil {
 		return err
 	}
+	if experiment.Lifecycle.KubeconfigPath != "" {
+		src := r.experiment.ResolvePath(experiment.Lifecycle.KubeconfigPath)
+		if err := copyFile(src, files.kubeconfig); err != nil {
+			return fmt.Errorf("copying kubeconfig from %s: %w", src, err)
+		}
+	}
 	state := runState{
 		Experiment: planned.Experiment,
 		Run:        planned.ID,
@@ -208,6 +214,15 @@ func (r *Runner) runOne(ctx context.Context, experiment config.Experiment, plann
 					return err
 				}
 				deschedulerInstalled = false
+			}
+			if experiment.Tools.SchedulerPlugins.Enabled {
+				if err := r.command(ctx, files, "scheduler-cleanup", nil, r.helm(), "uninstall", experiment.Tools.SchedulerPlugins.Release, "--namespace", experiment.Tools.SchedulerPlugins.Namespace, "--kubeconfig", files.kubeconfig, "--ignore-not-found"); err != nil {
+					return err
+				}
+			}
+			selector := "group=" + experiment.Tools.Application.Group
+			if err := r.command(ctx, files, "application-cleanup", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "all,configmap", "-n", experiment.Tools.Application.Namespace, "-l", selector, "--ignore-not-found"); err != nil {
+				return err
 			}
 		default:
 			return fmt.Errorf("unsupported phase %q", phase)
@@ -542,7 +557,7 @@ func (r *Runner) prepareLoadGen(ctx context.Context, experiment config.Experimen
 		if experiment.Tools.Application.ProxyNodes == "workers" && !node.Worker {
 			continue
 		}
-		endpoints = append(endpoints, map[string]any{"url": fmt.Sprintf("http://%s:%d", node.InternalIP, nodePort), "weight": 1})
+		endpoints = append(endpoints, map[string]any{"url": fmt.Sprintf("http://%s:%d", node.InternalIP, nodePort)})
 	}
 	if len(endpoints) == 0 {
 		return errors.New("no node-proxy endpoints discovered")
