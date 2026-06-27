@@ -130,8 +130,47 @@ tools:
 	if chaos.NodeGroupLabel != "topology.kubernetes.io/zone" || chaos.NetworkInterface != "flannel.1" || chaos.CrossZoneLatency != "50ms" {
 		t.Fatalf("chaos defaults = %#v", chaos)
 	}
-	if chaos.Jitter != "0ms" || chaos.Correlation != "0" {
+	if chaos.Jitter != "0ms" || chaos.Correlation != "0" || chaos.PacketLoss != "0" {
 		t.Fatalf("chaos defaults = %#v", chaos)
+	}
+	if chaos.EnableLatency == nil || !*chaos.EnableLatency || chaos.EnableBandwidth == nil || *chaos.EnableBandwidth || chaos.EnablePacketLoss == nil || *chaos.EnablePacketLoss {
+		t.Fatalf("chaos defaults = %#v", chaos)
+	}
+}
+
+func TestLoadAcceptsChaosInjectorBandwidthAndPacketLoss(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "app.tmpl"), []byte("test"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	content := `name: chaos
+tools:
+      proxmoxK3s:
+        config: {clusters: []}
+      chaosInjector:
+        enabled: true
+        enableLatency: false
+        enableBandwidth: true
+        crossZoneBandwidthBytesPerSecond: "1250000"
+        enablePacketLoss: true
+        packetLoss: 1.5
+      application:
+        name: app
+        template: app.tmpl
+      loadGen:
+        config: {pattern: {type: constant}}
+`
+	path := filepath.Join(dir, "experiment.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	experiment, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	chaos := experiment.Tools.ChaosInjector
+	if *chaos.EnableLatency || !*chaos.EnableBandwidth || !*chaos.EnablePacketLoss || chaos.CrossZoneBandwidthBytesPerSecond != "1250000" || chaos.PacketLoss != "1.5" {
+		t.Fatalf("chaos config = %#v", chaos)
 	}
 }
 

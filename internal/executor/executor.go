@@ -366,11 +366,23 @@ func (r *Runner) deployChaos(ctx context.Context, experiment config.Experiment, 
 		"NODE_GROUP_LABEL=" + chaos.NodeGroupLabel,
 		"NODE_SELECTOR=" + chaos.NodeSelector,
 		"NETWORK_INTERFACE=" + chaos.NetworkInterface,
+		"ENABLE_LATENCY=" + boolEnv(chaos.EnableLatency),
+		"ENABLE_BANDWIDTH=" + boolEnv(chaos.EnableBandwidth),
+		"ENABLE_PACKET_LOSS=" + boolEnv(chaos.EnablePacketLoss),
 		"CROSS_ZONE_LATENCY=" + chaos.CrossZoneLatency,
+		"CROSS_ZONE_BANDWIDTH_BYTES_PER_SECOND=" + chaos.CrossZoneBandwidthBytesPerSecond,
+		"PACKET_LOSS=" + chaos.PacketLoss,
 		"JITTER=" + chaos.Jitter,
 		"CORRELATION=" + chaos.Correlation,
 	}
 	return r.commandEnv(ctx, files, "chaos-deploy", nil, env, r.chaosInjector(), "deploy", files.chaosManifest)
+}
+
+func boolEnv(value *bool) string {
+	if value != nil && *value {
+		return "true"
+	}
+	return "false"
 }
 
 func (r *Runner) deleteChaos(ctx context.Context, files runFiles) error {

@@ -123,12 +123,10 @@ tools:
               enabled: true
             mon_agent:
               enabled: true
-              version: v0.0.5
               scrape_period_seconds: 30
               promql_range: 5m
             mentat:
               enabled: true
-              version: v0.2.1
               sleep_seconds: 5
 
           control_plane:
@@ -262,7 +260,12 @@ tools:
     nodeGroupLabel: topology.kubernetes.io/zone
     nodeSelector: nodepool=app
     networkInterface: flannel.1
+    enableLatency: true
+    enableBandwidth: false
+    enablePacketLoss: false
     crossZoneLatency: 100ms
+    crossZoneBandwidthBytesPerSecond: "1250000"
+    packetLoss: "0"
     jitter: 0ms
     correlation: "0"
 

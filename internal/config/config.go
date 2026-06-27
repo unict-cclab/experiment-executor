@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -180,13 +181,18 @@ type DeschedulerConfig struct {
 }
 
 type ChaosInjectorConfig struct {
-	Enabled          bool   `yaml:"enabled" json:"enabled"`
-	NodeGroupLabel   string `yaml:"nodeGroupLabel" json:"nodeGroupLabel"`
-	NodeSelector     string `yaml:"nodeSelector" json:"nodeSelector"`
-	NetworkInterface string `yaml:"networkInterface" json:"networkInterface"`
-	CrossZoneLatency string `yaml:"crossZoneLatency" json:"crossZoneLatency"`
-	Jitter           string `yaml:"jitter" json:"jitter"`
-	Correlation      string `yaml:"correlation" json:"correlation"`
+	Enabled                          bool   `yaml:"enabled" json:"enabled"`
+	NodeGroupLabel                   string `yaml:"nodeGroupLabel" json:"nodeGroupLabel"`
+	NodeSelector                     string `yaml:"nodeSelector" json:"nodeSelector"`
+	NetworkInterface                 string `yaml:"networkInterface" json:"networkInterface"`
+	EnableLatency                    *bool  `yaml:"enableLatency,omitempty" json:"enableLatency,omitempty"`
+	EnableBandwidth                  *bool  `yaml:"enableBandwidth,omitempty" json:"enableBandwidth,omitempty"`
+	EnablePacketLoss                 *bool  `yaml:"enablePacketLoss,omitempty" json:"enablePacketLoss,omitempty"`
+	CrossZoneLatency                 string `yaml:"crossZoneLatency" json:"crossZoneLatency"`
+	CrossZoneBandwidthBytesPerSecond string `yaml:"crossZoneBandwidthBytesPerSecond" json:"crossZoneBandwidthBytesPerSecond"`
+	PacketLoss                       string `yaml:"packetLoss" json:"packetLoss"`
+	Jitter                           string `yaml:"jitter" json:"jitter"`
+	Correlation                      string `yaml:"correlation" json:"correlation"`
 }
 
 type ApplicationConfig struct {
@@ -286,8 +292,23 @@ func applyDefaults(experiment *Experiment) {
 	if chaos.NodeGroupLabel == "" {
 		chaos.NodeGroupLabel = "topology.kubernetes.io/zone"
 	}
+	if chaos.EnableLatency == nil {
+		value := true
+		chaos.EnableLatency = &value
+	}
+	if chaos.EnableBandwidth == nil {
+		value := false
+		chaos.EnableBandwidth = &value
+	}
+	if chaos.EnablePacketLoss == nil {
+		value := false
+		chaos.EnablePacketLoss = &value
+	}
 	if chaos.CrossZoneLatency == "" {
 		chaos.CrossZoneLatency = "50ms"
+	}
+	if chaos.PacketLoss == "" {
+		chaos.PacketLoss = "0"
 	}
 	if chaos.NetworkInterface == "" {
 		chaos.NetworkInterface = "flannel.1"
@@ -382,11 +403,29 @@ func (experiment *Experiment) validateTools(prefix string, tools ToolConfig) []s
 		}
 	}
 	if tools.ChaosInjector.Enabled {
-		if duration, err := time.ParseDuration(tools.ChaosInjector.CrossZoneLatency); err != nil || duration <= 0 {
-			problems = append(problems, prefix+".chaosInjector.crossZoneLatency must be a positive duration")
+		latencyEnabled := tools.ChaosInjector.EnableLatency != nil && *tools.ChaosInjector.EnableLatency
+		bandwidthEnabled := tools.ChaosInjector.EnableBandwidth != nil && *tools.ChaosInjector.EnableBandwidth
+		packetLossEnabled := tools.ChaosInjector.EnablePacketLoss != nil && *tools.ChaosInjector.EnablePacketLoss
+		if !latencyEnabled && !bandwidthEnabled && !packetLossEnabled {
+			problems = append(problems, prefix+".chaosInjector must enable at least one of latency, bandwidth, or packet loss")
+		}
+		if latencyEnabled {
+			if duration, err := time.ParseDuration(tools.ChaosInjector.CrossZoneLatency); err != nil || duration <= 0 {
+				problems = append(problems, prefix+".chaosInjector.crossZoneLatency must be a positive duration")
+			}
 		}
 		if duration, err := time.ParseDuration(tools.ChaosInjector.Jitter); err != nil || duration < 0 {
 			problems = append(problems, prefix+".chaosInjector.jitter must be a non-negative duration")
+		}
+		if bandwidthEnabled {
+			if _, err := parsePositiveFloat(tools.ChaosInjector.CrossZoneBandwidthBytesPerSecond); err != nil {
+				problems = append(problems, prefix+".chaosInjector.crossZoneBandwidthBytesPerSecond must be a positive bytes-per-second value")
+			}
+		}
+		if packetLossEnabled {
+			if _, err := parsePercentage(tools.ChaosInjector.PacketLoss); err != nil {
+				problems = append(problems, prefix+".chaosInjector.packetLoss must be a percentage from 0 to 100")
+			}
 		}
 		if strings.TrimSpace(tools.ChaosInjector.NetworkInterface) == "" {
 			problems = append(problems, prefix+".chaosInjector.networkInterface is required when enabled")
@@ -419,6 +458,23 @@ func (experiment *Experiment) validateTools(prefix string, tools ToolConfig) []s
 		}
 	}
 	return problems
+}
+
+func parsePercentage(value string) (float64, error) {
+	trimmed := strings.TrimSuffix(strings.TrimSpace(value), "%")
+	parsed, err := strconv.ParseFloat(trimmed, 64)
+	if err != nil || parsed < 0 || parsed > 100 {
+		return 0, fmt.Errorf("invalid percentage")
+	}
+	return parsed, nil
+}
+
+func parsePositiveFloat(value string) (float64, error) {
+	parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+	if err != nil || parsed <= 0 {
+		return 0, fmt.Errorf("invalid positive float")
+	}
+	return parsed, nil
 }
 
 func (experiment *Experiment) ResolvePath(path string) string {
