@@ -56,7 +56,7 @@ tools:
 	}
 }
 
-func TestLoadRejectsCustomSchedulerWhenPluginIsDisabled(t *testing.T) {
+func TestLoadAllowsCustomSchedulersWhenPluginIsDisabled(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"app.tmpl"} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("test"), 0o600); err != nil {
@@ -80,9 +80,12 @@ tools:
 		t.Fatal(err)
 	}
 
-	_, err := Load(path)
-	if err == nil || !strings.Contains(err.Error(), "requires schedulerPlugins.enabled") {
+	experiment, err := Load(path)
+	if err != nil {
 		t.Fatalf("Load() error = %v", err)
+	}
+	if experiment.Tools.Application.SchedulerName != "custom-scheduler" {
+		t.Fatalf("schedulerName = %q", experiment.Tools.Application.SchedulerName)
 	}
 }
 

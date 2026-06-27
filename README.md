@@ -199,6 +199,19 @@ validated by its own tool during execution.
 See [`experiments/network-aware-scheduler/experiment.yaml`](experiments/network-aware-scheduler/experiment.yaml)
 for a complete example.
 
+Application scheduler selection is independent from scheduler installation.
+`tools.schedulerPlugins.enabled: false` means the executor will not install the
+scheduler-plugins Helm chart. You can still render Pods for a scheduler already
+running in the cluster:
+
+```yaml
+tools:
+  schedulerPlugins:
+    enabled: false
+  application:
+    schedulerName: scheduler-plugins-scheduler
+```
+
 ## Execution lifecycle
 
 Every run has explicit phases:

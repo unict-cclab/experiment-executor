@@ -250,7 +250,9 @@ tools:
     template: ../../../apps/onlineboutique/templates/manifest.yaml.tmpl
     namespace: default
     group: onlineboutique
-    # schedulerName defaults to default-scheduler while schedulerPlugins is disabled.
+    # schedulerName is rendered into Pods; schedulerPlugins.enabled only controls
+    # whether this executor installs scheduler-plugins.
+    schedulerName: default-scheduler
     minReplicas: 2
     proxyNodes: all
     proxyNodePort: 30080

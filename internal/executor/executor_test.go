@@ -46,7 +46,7 @@ func TestDryRunRendersArtifactsWithoutExternalCommands(t *testing.T) {
 			}},
 			Application: config.ApplicationConfig{
 				Name: "app", Template: templatePath, Namespace: "default", Group: "app",
-				SchedulerName: "default-scheduler", ProxyNodes: "all",
+				SchedulerName: "custom-scheduler", ProxyNodes: "all",
 			},
 			Descheduler: config.DeschedulerConfig{
 				Enabled: true, Chart: "/opt/experiment-executor/charts/descheduler", Release: "descheduler", Namespace: "kube-system", Interval: "30s",
@@ -83,6 +83,18 @@ func TestDryRunRendersArtifactsWithoutExternalCommands(t *testing.T) {
 	}
 	if state.Status != "dry-run" {
 		t.Fatalf("status = %q", state.Status)
+	}
+	application, err := os.ReadFile(filepath.Join(dir, "config", "application.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rendered := string(application)
+	for _, want := range []string{
+		"scheduler: custom-scheduler",
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("rendered application missing %q:\n%s", want, rendered)
+		}
 	}
 }
 

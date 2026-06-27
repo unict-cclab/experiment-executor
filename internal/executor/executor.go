@@ -83,6 +83,9 @@ func Run(ctx context.Context, experiment *config.Experiment, options Options) er
 			return err
 		}
 	}
+	if options.DryRun {
+		return nil
+	}
 	return aggregateRunSummaries(experiment)
 }
 

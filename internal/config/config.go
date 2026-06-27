@@ -441,8 +441,8 @@ func (experiment *Experiment) validateTools(prefix string, tools ToolConfig) []s
 	if !validName.MatchString(tools.Application.Group) {
 		problems = append(problems, prefix+".application.group must be a lowercase DNS-style name")
 	}
-	if tools.Application.SchedulerName != "default-scheduler" && !tools.SchedulerPlugins.Enabled {
-		problems = append(problems, prefix+".application.schedulerName requires schedulerPlugins.enabled")
+	if strings.TrimSpace(tools.Application.SchedulerName) == "" {
+		problems = append(problems, prefix+".application.schedulerName must not be empty")
 	}
 	if tools.Application.ProxyNodes != "all" && tools.Application.ProxyNodes != "workers" && tools.Application.ProxyNodes != "none" {
 		problems = append(problems, prefix+".application.proxyNodes must be all, workers, or none")
