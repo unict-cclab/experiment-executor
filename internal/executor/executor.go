@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -302,26 +301,41 @@ func (r *Runner) configureObservability(ctx context.Context, experiment config.E
 	if r.options.DryRun {
 		return r.command(ctx, files, "observability", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "get", "namespace", "observability")
 	}
-	if experiment.Tools.ProxmoxK3s.MonAgent().Enabled {
-		image := "ghcr.io/unict-cclab/mon-agent:" + experiment.Tools.ProxmoxK3s.MonAgent().Version
-		if err := r.command(ctx, files, "mon-agent-image", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "image", "deployment/mon-agent", "mon-agent="+image); err != nil {
-			return err
+	if monAgent := experiment.Tools.ProxmoxK3s.MonAgent(); monAgent.Enabled {
+		if monAgent.Version != "" {
+			image := "ghcr.io/unict-cclab/mon-agent:" + monAgent.Version
+			if err := r.command(ctx, files, "mon-agent-image", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "image", "deployment/mon-agent", "mon-agent="+image); err != nil {
+				return err
+			}
 		}
-		if err := r.command(ctx, files, "mon-agent-config", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "env", "deployment/mon-agent", "SCRAPE_PERIOD_SECONDS="+strconv.Itoa(durationSeconds(experiment.Tools.ProxmoxK3s.MonAgent().ScrapeInterval)), "PROMQL_RANGE="+experiment.Tools.ProxmoxK3s.MonAgent().MetricsRange); err != nil {
-			return err
+		env := optionalEnvVars(
+			envFromDuration("SCRAPE_PERIOD_SECONDS", monAgent.ScrapeInterval),
+			envFromString("PROMQL_RANGE", monAgent.MetricsRange),
+		)
+		if len(env) > 0 {
+			args := append([]string{"--kubeconfig", files.kubeconfig, "-n", "observability", "set", "env", "deployment/mon-agent"}, env...)
+			if err := r.command(ctx, files, "mon-agent-config", nil, r.kubectl(), args...); err != nil {
+				return err
+			}
 		}
 	}
-	if experiment.Tools.ProxmoxK3s.Mentat().Enabled {
+	if mentat := experiment.Tools.ProxmoxK3s.Mentat(); mentat.Enabled {
 		mentatRules := `{"rules":[{"apiGroups":[""],"resources":["pods"],"verbs":["get","list","watch"]}]}`
 		if err := r.command(ctx, files, "mentat-rbac", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "patch", "clusterrole", "mentat", "--type=merge", "-p", mentatRules); err != nil {
 			return err
 		}
-		image := "ghcr.io/unict-cclab/mentat:" + experiment.Tools.ProxmoxK3s.Mentat().Version
-		if err := r.command(ctx, files, "mentat-image", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "image", "daemonset/mentat", "mentat="+image); err != nil {
-			return err
+		if mentat.Version != "" {
+			image := "ghcr.io/unict-cclab/mentat:" + mentat.Version
+			if err := r.command(ctx, files, "mentat-image", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "image", "daemonset/mentat", "mentat="+image); err != nil {
+				return err
+			}
 		}
-		if err := r.command(ctx, files, "mentat-config", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "-n", "observability", "set", "env", "daemonset/mentat", "SLEEP_SECONDS="+strconv.Itoa(durationSeconds(experiment.Tools.ProxmoxK3s.Mentat().ProbeInterval))); err != nil {
-			return err
+		env := optionalEnvVars(envFromDuration("SLEEP_SECONDS", mentat.ProbeInterval))
+		if len(env) > 0 {
+			args := append([]string{"--kubeconfig", files.kubeconfig, "-n", "observability", "set", "env", "daemonset/mentat"}, env...)
+			if err := r.command(ctx, files, "mentat-config", nil, r.kubectl(), args...); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -658,6 +672,30 @@ func (r *Runner) chaosInjector() string {
 func durationSeconds(value string) int {
 	duration, _ := time.ParseDuration(value)
 	return int(duration.Seconds())
+}
+
+func optionalEnvVars(values ...string) []string {
+	env := make([]string, 0, len(values))
+	for _, value := range values {
+		if value != "" {
+			env = append(env, value)
+		}
+	}
+	return env
+}
+
+func envFromString(name, value string) string {
+	if value == "" {
+		return ""
+	}
+	return name + "=" + value
+}
+
+func envFromDuration(name, value string) string {
+	if value == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s=%d", name, durationSeconds(value))
 }
 
 func ensureMap(parent map[string]any, key string) map[string]any {

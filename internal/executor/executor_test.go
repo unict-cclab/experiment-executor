@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/unict-cclab/experiment-executor/internal/config"
@@ -98,5 +99,98 @@ func TestExpandApplicationPoolUsesSequentialStaticAddresses(t *testing.T) {
 	nodes := declaredNodes(value)
 	if len(nodes) != 3 || nodes[1].Name != "app-zone-a-01" || nodes[1].InternalIP != "192.0.2.20" || nodes[2].InternalIP != "192.0.2.21" || nodes[2].Zone != "zone-a" || nodes[2].Pool != "app" {
 		t.Fatalf("expanded nodes = %#v", nodes)
+	}
+}
+
+func TestConfigureObservabilityPreservesProxmoxDefaultsWhenSettingsAreOmitted(t *testing.T) {
+	dir := t.TempDir()
+	kubectl := fakeCommand(t, dir, "kubectl")
+	files := runFiles{
+		logs:       filepath.Join(dir, "logs"),
+		kubeconfig: filepath.Join(dir, "kubeconfig"),
+	}
+	if err := os.MkdirAll(files.logs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	experiment := config.Experiment{
+		Commands: config.Commands{Kubectl: kubectl},
+		Tools: config.ToolConfig{ProxmoxK3s: config.ProxmoxK3sConfig{Config: map[string]any{
+			"clusters": []any{map[string]any{
+				"addons": map[string]any{
+					"mon_agent": map[string]any{"enabled": true},
+					"mentat":    map[string]any{"enabled": true},
+				},
+			}},
+		}}},
+	}
+	runner := &Runner{experiment: &experiment}
+
+	if err := runner.configureObservability(context.Background(), experiment, files); err != nil {
+		t.Fatalf("configureObservability() error = %v", err)
+	}
+
+	for _, unexpected := range []string{"mon-agent-image.log", "mon-agent-config.log", "mentat-image.log", "mentat-config.log"} {
+		if _, err := os.Stat(filepath.Join(files.logs, unexpected)); !os.IsNotExist(err) {
+			t.Fatalf("unexpected %s: %v", unexpected, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(files.logs, "mentat-rbac.log")); err != nil {
+		t.Fatalf("missing mentat RBAC patch log: %v", err)
+	}
+}
+
+func TestConfigureObservabilityPatchesExplicitSettings(t *testing.T) {
+	dir := t.TempDir()
+	kubectl := fakeCommand(t, dir, "kubectl")
+	files := runFiles{
+		logs:       filepath.Join(dir, "logs"),
+		kubeconfig: filepath.Join(dir, "kubeconfig"),
+	}
+	if err := os.MkdirAll(files.logs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	experiment := config.Experiment{
+		Commands: config.Commands{Kubectl: kubectl},
+		Tools: config.ToolConfig{ProxmoxK3s: config.ProxmoxK3sConfig{Config: map[string]any{
+			"clusters": []any{map[string]any{
+				"addons": map[string]any{
+					"mon_agent": map[string]any{"enabled": true, "version": "v1.2.3", "scrape_period_seconds": 45, "promql_range": "10m"},
+					"mentat":    map[string]any{"enabled": true, "version": "v2.3.4", "sleep_seconds": 7},
+				},
+			}},
+		}}},
+	}
+	runner := &Runner{experiment: &experiment}
+
+	if err := runner.configureObservability(context.Background(), experiment, files); err != nil {
+		t.Fatalf("configureObservability() error = %v", err)
+	}
+
+	assertLogContains(t, files.logs, "mon-agent-image.log", "mon-agent=ghcr.io/unict-cclab/mon-agent:v1.2.3")
+	assertLogContains(t, files.logs, "mon-agent-config.log", "SCRAPE_PERIOD_SECONDS=45", "PROMQL_RANGE=10m")
+	assertLogContains(t, files.logs, "mentat-image.log", "mentat=ghcr.io/unict-cclab/mentat:v2.3.4")
+	assertLogContains(t, files.logs, "mentat-config.log", "SLEEP_SECONDS=7")
+}
+
+func fakeCommand(t *testing.T, dir, name string) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte("#!/bin/sh\nprintf '%s\\n' \"$*\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func assertLogContains(t *testing.T, dir, name string, expected ...string) {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(dir, name))
+	if err != nil {
+		t.Fatalf("reading %s: %v", name, err)
+	}
+	content := string(data)
+	for _, value := range expected {
+		if !strings.Contains(content, value) {
+			t.Fatalf("%s does not contain %q:\n%s", name, value, content)
+		}
 	}
 }
