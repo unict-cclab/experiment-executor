@@ -54,6 +54,12 @@ tools:
 	if experiment.Tools.Application.Group != "app" {
 		t.Fatalf("group = %q", experiment.Tools.Application.Group)
 	}
+	if experiment.Tools.Application.HPA.Enabled || experiment.Tools.Application.CPA.Enabled {
+		t.Fatalf("autoscalers should default disabled: hpa=%#v cpa=%#v", experiment.Tools.Application.HPA, experiment.Tools.Application.CPA)
+	}
+	if experiment.Tools.Application.HPA.MaxReplicas != 10 || experiment.Tools.Application.CPA.MaxReplicas != 10 {
+		t.Fatalf("autoscaler defaults not applied: hpa=%#v cpa=%#v", experiment.Tools.Application.HPA, experiment.Tools.Application.CPA)
+	}
 }
 
 func TestLoadAllowsCustomSchedulersWhenPluginIsDisabled(t *testing.T) {
@@ -100,6 +106,37 @@ unexpected: true
 
 	_, err := Load(path)
 	if err == nil || !strings.Contains(err.Error(), "field unexpected not found") {
+		t.Fatalf("Load() error = %v", err)
+	}
+}
+
+func TestLoadRejectsBothApplicationAutoscalersEnabled(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "app.tmpl"), []byte("test"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	content := `name: autoscaling
+tools:
+      proxmoxK3s:
+        config: {clusters: []}
+      application:
+        name: app
+        template: app.tmpl
+        hpa:
+          enabled: true
+        cpa:
+          enabled: true
+          image: custom-pod-autoscaler:latest
+      loadGen:
+        config: {pattern: {type: constant}}
+`
+	path := filepath.Join(dir, "experiment.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(path)
+	if err == nil || !strings.Contains(err.Error(), "must not enable both hpa and cpa") {
 		t.Fatalf("Load() error = %v", err)
 	}
 }
@@ -173,6 +210,40 @@ tools:
 	}
 	chaos := experiment.Tools.ChaosInjector
 	if *chaos.EnableLatency || !*chaos.EnableBandwidth || !*chaos.EnablePacketLoss || chaos.CrossZoneBandwidthBytesPerSecond != "1250000" || chaos.PacketLoss != "1.5" {
+		t.Fatalf("chaos config = %#v", chaos)
+	}
+}
+
+func TestLoadAcceptsNoOpChaosInjector(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "app.tmpl"), []byte("test"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	content := `name: chaos
+tools:
+      proxmoxK3s:
+        config: {clusters: []}
+      chaosInjector:
+        enabled: true
+        enableLatency: false
+        enableBandwidth: false
+        enablePacketLoss: false
+      application:
+        name: app
+        template: app.tmpl
+      loadGen:
+        config: {pattern: {type: constant}}
+`
+	path := filepath.Join(dir, "experiment.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	experiment, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	chaos := experiment.Tools.ChaosInjector
+	if *chaos.EnableLatency || *chaos.EnableBandwidth || *chaos.EnablePacketLoss {
 		t.Fatalf("chaos config = %#v", chaos)
 	}
 }

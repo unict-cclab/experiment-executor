@@ -1,4 +1,4 @@
-name: network-aware-scheduler
+name: custom-pod-autoscaler
 runs: 1
 
 commands:
@@ -205,7 +205,7 @@ tools:
       pluginConfig: []
 
   descheduler:
-    enabled: true
+    enabled: false
     chart: /opt/experiment-executor/charts/descheduler
     release: descheduler
     namespace: kube-system
@@ -260,7 +260,7 @@ tools:
       maxReplicas: 10
       targetCPUUtilizationPercentage: 70
     cpa:
-      enabled: false
+      enabled: true
       image: 192.168.1.61/library/custom-pod-autoscaler:latest
       imagePullPolicy: IfNotPresent
       intervalMillis: 15000
@@ -284,7 +284,7 @@ tools:
     nodeGroupLabel: topology.kubernetes.io/zone
     nodeSelector: nodepool=app
     networkInterface: flannel.1
-    enableLatency: true
+    enableLatency: false
     enableBandwidth: false
     enablePacketLoss: false
     crossZoneLatency: 100ms
@@ -295,33 +295,33 @@ tools:
 
   loadGen:
     config:
-      name: onlineboutique
+      name: custom-pod-autoscaler
       locustfile: ../../../apps/onlineboutique/locustfile.py
+      host: http://192.168.1.65:30080
+      endpoints:
+        - url: http://192.168.1.65:30080
+          zone: zone-a
+        - url: http://192.168.1.66:30080
+          zone: zone-a
+        - url: http://192.168.1.67:30080
+          zone: zone-b
+        - url: http://192.168.1.68:30080
+          zone: zone-b
       warmup_s: 10
       sample_interval_s: 1
       slo_ms: 250
       p95_window_s: 30
       pattern:
-        type: mixed
-        parts:
-          - type: constant
-            rps: 30
-            duration: 5m
-          - type: constant
-            rps: 30
-            duration: 5m
+        type: sinusoidal
+        baseline_rps: 200
+        amplitude_rps: 200
+        period: 10m
+        duration: 30m
       zone_distribution:
-        type: mixed
-        parts:
-          - type: constant
-            duration: 5m
-            primary_zone: zone-a
-            spread: 0
-          - type: linear
-            duration: 5m
-            primary_zone: zone-a
-            start_spread: 0
-            end_spread: 1
+        type: constant
+        duration: 30m
+        primary_zone: zone-a
+        spread: 1
       kubernetes:
         enabled: true
         namespace: default

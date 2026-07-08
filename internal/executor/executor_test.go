@@ -98,6 +98,64 @@ func TestDryRunRendersArtifactsWithoutExternalCommands(t *testing.T) {
 	}
 }
 
+func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
+	templatePath, err := filepath.Abs(filepath.Join("..", "..", "..", "apps", "onlineboutique", "templates", "manifest.yaml.tmpl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name      string
+		app       config.ApplicationConfig
+		want      string
+		wantCount int
+	}{
+		{
+			name: "hpa",
+			app: config.ApplicationConfig{
+				Name: "onlineboutique", Template: templatePath, Namespace: "default", Group: "onlineboutique",
+				SchedulerName: "default-scheduler", MinReplicas: 2,
+				HPA: config.HPAConfig{Enabled: true, MinReplicas: 2, MaxReplicas: 10, TargetCPUUtilizationPercentage: 70},
+			},
+			want:      "kind: HorizontalPodAutoscaler",
+			wantCount: 11,
+		},
+		{
+			name: "cpa",
+			app: config.ApplicationConfig{
+				Name: "onlineboutique", Template: templatePath, Namespace: "default", Group: "onlineboutique",
+				SchedulerName: "default-scheduler", MinReplicas: 2,
+				CPA: config.CPAConfig{
+					Enabled: true, Image: "custom-pod-autoscaler:latest", ImagePullPolicy: "IfNotPresent",
+					IntervalMillis: 15000, MinReplicas: 2, MaxReplicas: 10,
+					PrometheusURL: "http://prometheus/api/v1/query", TargetResponseTimeMillis: 250, TargetPercentage: 0.95,
+					TimeRange: "1m", RedisImage: "redis:7.4-alpine", RedisHost: "custom-pod-autoscaler-redis",
+					KP: 1, DownscaleStabilization: 300,
+				},
+			},
+			want:      "kind: CustomPodAutoscaler",
+			wantCount: 10,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			experiment := &config.Experiment{SourceDir: dir, Tools: config.ToolConfig{Application: tc.app}}
+			runner := &Runner{experiment: experiment}
+			files := runFiles{application: filepath.Join(dir, "application.yaml")}
+			if err := runner.renderApplication(*experiment, files, nil); err != nil {
+				t.Fatalf("renderApplication() error = %v", err)
+			}
+			data, err := os.ReadFile(files.application)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rendered := string(data)
+			if count := strings.Count(rendered, tc.want); count != tc.wantCount {
+				t.Fatalf("count(%q) = %d, want %d", tc.want, count, tc.wantCount)
+			}
+		})
+	}
+}
+
 func TestExpandApplicationPoolUsesSequentialStaticAddresses(t *testing.T) {
 	value := map[string]any{"clusters": []any{map[string]any{"workers": []any{map[string]any{"name": "management", "ip": "192.0.2.10"}}}}}
 	pool := &config.ApplicationPoolConfig{

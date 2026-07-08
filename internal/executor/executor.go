@@ -229,6 +229,11 @@ func (r *Runner) runOne(ctx context.Context, experiment config.Experiment, plann
 			if err := r.command(ctx, files, "application-cleanup", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "all,configmap", "-n", experiment.Tools.Application.Namespace, "-l", selector, "--ignore-not-found"); err != nil {
 				return err
 			}
+			if experiment.Tools.Application.CPA.Enabled {
+				if err := r.command(ctx, files, "application-cpa-cleanup", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "custompodautoscaler", "-n", experiment.Tools.Application.Namespace, "-l", selector, "--ignore-not-found"); err != nil {
+					return err
+				}
+			}
 		default:
 			return fmt.Errorf("unsupported phase %q", phase)
 		}
@@ -493,12 +498,63 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 		return err
 	}
 	defer file.Close()
+	hpa := experiment.Tools.Application.HPA
+	cpa := experiment.Tools.Application.CPA
 	values := map[string]any{
 		"schedulerName": experiment.Tools.Application.SchedulerName,
 		"group":         experiment.Tools.Application.Group,
 		"proxyNodes":    selected,
+		"hpaServices": []string{
+			"currencyservice",
+			"productcatalogservice",
+			"checkoutservice",
+			"shippingservice",
+			"cartservice",
+			"redis-cart",
+			"emailservice",
+			"paymentservice",
+			"frontend",
+			"recommendationservice",
+			"adservice",
+		},
+		"cpaServices": []string{
+			"currencyservice",
+			"productcatalogservice",
+			"checkoutservice",
+			"shippingservice",
+			"cartservice",
+			"emailservice",
+			"paymentservice",
+			"frontend",
+			"recommendationservice",
+			"adservice",
+		},
 		"minReplicas":   experiment.Tools.Application.MinReplicas,
 		"proxyNodePort": experiment.Tools.Application.ProxyNodePort,
+		"hpa": map[string]any{
+			"enabled":                        hpa.Enabled,
+			"minReplicas":                    hpa.MinReplicas,
+			"maxReplicas":                    hpa.MaxReplicas,
+			"targetCPUUtilizationPercentage": hpa.TargetCPUUtilizationPercentage,
+		},
+		"cpa": map[string]any{
+			"enabled":                  cpa.Enabled,
+			"image":                    cpa.Image,
+			"imagePullPolicy":          cpa.ImagePullPolicy,
+			"intervalMillis":           cpa.IntervalMillis,
+			"minReplicas":              cpa.MinReplicas,
+			"maxReplicas":              cpa.MaxReplicas,
+			"prometheusURL":            cpa.PrometheusURL,
+			"targetResponseTimeMillis": cpa.TargetResponseTimeMillis,
+			"targetPercentage":         cpa.TargetPercentage,
+			"timeRange":                cpa.TimeRange,
+			"redisImage":               cpa.RedisImage,
+			"redisHost":                cpa.RedisHost,
+			"kp":                       cpa.KP,
+			"ki":                       cpa.KI,
+			"kd":                       cpa.KD,
+			"downscaleStabilization":   cpa.DownscaleStabilization,
+		},
 	}
 	if err := tmpl.ExecuteTemplate(file, filepath.Base(templatePath), values); err != nil {
 		return fmt.Errorf("rendering application template: %w", err)
