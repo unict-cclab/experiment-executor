@@ -121,6 +121,8 @@ tools:
               data_dir: /data/nfs
             chaos_mesh:
               enabled: true
+            custom_pod_autoscaler:
+              enabled: true
             mon_agent:
               enabled: true
               scrape_period_seconds: 30
