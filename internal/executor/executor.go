@@ -513,13 +513,19 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 	defer file.Close()
 	hpa := experiment.Tools.Application.HPA
 	cpa := experiment.Tools.Application.CPA
-	values := make(map[string]any, len(experiment.Tools.Application.Parameters)+8)
-	for key, value := range experiment.Tools.Application.Parameters {
-		values[key] = value
-	}
+	values := make(map[string]any, 20)
 	values["schedulerName"] = experiment.Tools.Application.SchedulerName
 	values["group"] = experiment.Tools.Application.Group
 	values["proxyNodes"] = selected
+	values["portbind"] = experiment.Tools.Application.PortBind
+	values["p2pToken"] = experiment.Tools.Application.P2PToken
+	values["masterHostname"] = experiment.Tools.Application.MasterHostname
+	values["useGPU"] = experiment.Tools.Application.UseGPU
+	values["numWorker"] = experiment.Tools.Application.NumWorker
+	values["workerBasePort"] = experiment.Tools.Application.WorkerBasePort
+	values["workerNodeName"] = experiment.Tools.Application.WorkerNodeName
+	values["workerMemoryLimitGi"] = experiment.Tools.Application.WorkerMemoryLimitGi
+	values["gatewayNodePort"] = experiment.Tools.Application.GatewayNodePort
 	values["hpaServices"] = []string{
 		"currencyservice",
 		"productcatalogservice",

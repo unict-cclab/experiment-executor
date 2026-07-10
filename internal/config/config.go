@@ -196,17 +196,25 @@ type ChaosInjectorConfig struct {
 }
 
 type ApplicationConfig struct {
-	Name          string         `yaml:"name" json:"name"`
-	Template      string         `yaml:"template" json:"template"`
-	Namespace     string         `yaml:"namespace" json:"namespace"`
-	Group         string         `yaml:"group" json:"group"`
-	SchedulerName string         `yaml:"schedulerName" json:"schedulerName"`
-	ProxyNodes    string         `yaml:"proxyNodes" json:"proxyNodes"`
-	MinReplicas   int            `yaml:"minReplicas" json:"minReplicas"`
-	ProxyNodePort int            `yaml:"proxyNodePort" json:"proxyNodePort"`
-	Parameters    map[string]any `yaml:"parameters,omitempty" json:"parameters,omitempty"`
-	HPA           HPAConfig      `yaml:"hpa" json:"hpa"`
-	CPA           CPAConfig      `yaml:"cpa" json:"cpa"`
+	Name                string    `yaml:"name" json:"name"`
+	Template            string    `yaml:"template" json:"template"`
+	Namespace           string    `yaml:"namespace" json:"namespace"`
+	Group               string    `yaml:"group" json:"group"`
+	SchedulerName       string    `yaml:"schedulerName" json:"schedulerName"`
+	ProxyNodes          string    `yaml:"proxyNodes" json:"proxyNodes"`
+	MinReplicas         int       `yaml:"minReplicas" json:"minReplicas"`
+	ProxyNodePort       int       `yaml:"proxyNodePort" json:"proxyNodePort"`
+	PortBind            int       `yaml:"portbind,omitempty" json:"portbind,omitempty"`
+	P2PToken            string    `yaml:"p2pToken,omitempty" json:"p2pToken,omitempty"`
+	MasterHostname      string    `yaml:"masterHostname,omitempty" json:"masterHostname,omitempty"`
+	UseGPU              bool      `yaml:"useGPU,omitempty" json:"useGPU,omitempty"`
+	NumWorker           int       `yaml:"numWorker,omitempty" json:"numWorker,omitempty"`
+	WorkerBasePort      int       `yaml:"workerBasePort,omitempty" json:"workerBasePort,omitempty"`
+	WorkerNodeName      string    `yaml:"workerNodeName,omitempty" json:"workerNodeName,omitempty"`
+	WorkerMemoryLimitGi int       `yaml:"workerMemoryLimitGi,omitempty" json:"workerMemoryLimitGi,omitempty"`
+	GatewayNodePort     int       `yaml:"gatewayNodePort,omitempty" json:"gatewayNodePort,omitempty"`
+	HPA                 HPAConfig `yaml:"hpa" json:"hpa"`
+	CPA                 CPAConfig `yaml:"cpa" json:"cpa"`
 }
 
 type HPAConfig struct {

@@ -6,13 +6,12 @@ application:
   group: cluster-1
   schedulerName: default-scheduler
   proxyNodes: workers
-  parameters:
-    portbind: 8080
-    p2pToken: CHANGE_ME_p2p_token
-    masterHostname: ""
-    useGPU: false
-    numWorker: 3
-    workerBasePort: 19100
-    workerNodeName: ""
-    workerMemoryLimitGi: 0
-    gatewayNodePort: 30080
+  portbind: 8080
+  p2pToken: CHANGE_ME_p2p_token
+  masterHostname: ""
+  useGPU: false
+  numWorker: 3
+  workerBasePort: 19100
+  workerNodeName: ""
+  workerMemoryLimitGi: 0
+  gatewayNodePort: 30080

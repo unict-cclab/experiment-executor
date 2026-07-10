@@ -170,12 +170,8 @@ func TestRenderLocalAIApplication(t *testing.T) {
 		Tools: config.ToolConfig{Application: config.ApplicationConfig{
 			Name: "localai", Template: templatePath, Namespace: "local-ai", Group: "cluster-1",
 			SchedulerName: "default-scheduler", ProxyNodes: "workers",
-			Parameters: map[string]any{
-				"group": "must-not-override", "portbind": 8080, "p2pToken": "test-token",
-				"masterHostname": "", "useGPU": false, "numWorker": 3,
-				"workerBasePort": 19100, "workerNodeName": "", "workerMemoryLimitGi": 0,
-				"gatewayNodePort": 30080,
-			},
+			PortBind: 8080, P2PToken: "test-token", NumWorker: 3,
+			WorkerBasePort: 19100, GatewayNodePort: 30080,
 		}},
 	}
 	runner := &Runner{experiment: experiment}
@@ -199,9 +195,6 @@ func TestRenderLocalAIApplication(t *testing.T) {
 	}
 	if count := strings.Count(rendered, "name: localai-worker-cluster-1-"); count != 3 {
 		t.Errorf("rendered %d LocalAI workers, want 3", count)
-	}
-	if strings.Contains(rendered, "must-not-override") {
-		t.Error("application parameters overrode executor-owned group")
 	}
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	for document := 1; ; document++ {
