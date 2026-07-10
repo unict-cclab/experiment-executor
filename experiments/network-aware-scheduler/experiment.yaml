@@ -238,48 +238,33 @@ tools:
                 ignoreSameZoneNetworkCost: true
                 namespaces:
                   include:
-                    - "default"
+                    - "local-ai"
                 labelSelector:
                   matchLabels:
-                    group: onlineboutique
+                    group: cluster-1
           plugins:
             deschedule:
               enabled:
                 - "NetworkAware"
 
   application:
-    name: onlineboutique
-    template: ../../../benchmark-apps/onlineboutique/templates/manifest.yaml.tmpl
-    namespace: default
-    group: onlineboutique
+    name: localai
+    template: ../../../benchmark-apps/localai/templates/manifest.yaml.tmpl
+    namespace: local-ai
+    group: cluster-1
     # schedulerName is rendered into Pods; schedulerPlugins.enabled only controls
     # whether this executor installs scheduler-plugins.
     schedulerName: default-scheduler
-    minReplicas: 2
-    hpa:
-      enabled: false
-      minReplicas: 2
-      maxReplicas: 10
-      targetCPUUtilizationPercentage: 70
-    cpa:
-      enabled: false
-      image: 192.168.1.61/library/custom-pod-autoscaler:latest
-      imagePullPolicy: IfNotPresent
-      intervalMillis: 15000
-      minReplicas: 2
-      maxReplicas: 10
-      prometheusURL: http://prometheus-kube-prometheus-prometheus.observability:9090/api/v1/query
-      targetResponseTimeMillis: 250
-      targetPercentage: 0.95
-      timeRange: 1m
-      redisImage: redis:7.4-alpine
-      redisHost: custom-pod-autoscaler-redis
-      kp: 1
-      ki: 0
-      kd: 0
-      downscaleStabilization: 300
-    proxyNodes: all
-    proxyNodePort: 30080
+    proxyNodes: workers
+    portbind: 8080
+    p2pToken: CHANGE_ME_p2p_token
+    masterHostname: ""
+    useGPU: false
+    numWorker: 3
+    workerBasePort: 19100
+    workerNodeName: ""
+    workerMemoryLimitGi: 0
+    gatewayNodePort: 30080
 
   chaosInjector:
     enabled: true
@@ -297,8 +282,8 @@ tools:
 
   loadGen:
     config:
-      name: onlineboutique
-      locustfile: ../../../benchmark-apps/onlineboutique/locustfile.py
+      name: localai
+      locustfile: ../../../benchmark-apps/localai/locustfile.py
       warmup_s: 10
       sample_interval_s: 1
       slo_ms: 250
@@ -326,6 +311,6 @@ tools:
             end_spread: 1
       kubernetes:
         enabled: true
-        namespace: default
+        namespace: local-ai
         sample_interval_s: 5
-        selector: group=onlineboutique
+        selector: group=cluster-1
