@@ -516,6 +516,7 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 	values := make(map[string]any, 20)
 	values["schedulerName"] = experiment.Tools.Application.SchedulerName
 	values["group"] = experiment.Tools.Application.Group
+	values["namespace"] = experiment.Tools.Application.Namespace
 	values["proxyNodes"] = selected
 	values["portbind"] = experiment.Tools.Application.PortBind
 	values["p2pToken"] = experiment.Tools.Application.P2PToken
@@ -525,7 +526,8 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 	values["workerBasePort"] = experiment.Tools.Application.WorkerBasePort
 	values["workerNodeName"] = experiment.Tools.Application.WorkerNodeName
 	values["workerMemoryLimitGi"] = experiment.Tools.Application.WorkerMemoryLimitGi
-	values["gatewayNodePort"] = experiment.Tools.Application.GatewayNodePort
+	values["models_pvc"] = experiment.Tools.Application.ModelsPVC
+	values["backend_pvc"] = experiment.Tools.Application.BackendPVC
 	values["hpaServices"] = []string{
 		"currencyservice",
 		"productcatalogservice",

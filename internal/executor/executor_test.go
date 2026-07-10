@@ -171,7 +171,8 @@ func TestRenderLocalAIApplication(t *testing.T) {
 			Name: "localai", Template: templatePath, Namespace: "local-ai", Group: "cluster-1",
 			SchedulerName: "default-scheduler", ProxyNodes: "workers",
 			PortBind: 8080, P2PToken: "test-token", NumWorker: 3,
-			WorkerBasePort: 19100, GatewayNodePort: 30080,
+			WorkerBasePort: 19100, ProxyNodePort: 30080,
+			ModelsPVC: "models-test-pvc", BackendPVC: "backend-test-pvc",
 		}},
 	}
 	runner := &Runner{experiment: experiment}
@@ -188,6 +189,7 @@ func TestRenderLocalAIApplication(t *testing.T) {
 	for _, expected := range []string{
 		"name: local-ai-cluster-1", "schedulerName: default-scheduler", "--p2ptoken",
 		"test-token", "nodePort: 30080", "name: gateway-cluster-1-worker-01",
+		"claimName: models-test-pvc", "claimName: backend-test-pvc",
 	} {
 		if !strings.Contains(rendered, expected) {
 			t.Errorf("rendered LocalAI manifest does not contain %q", expected)

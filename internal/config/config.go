@@ -212,7 +212,8 @@ type ApplicationConfig struct {
 	WorkerBasePort      int       `yaml:"workerBasePort,omitempty" json:"workerBasePort,omitempty"`
 	WorkerNodeName      string    `yaml:"workerNodeName,omitempty" json:"workerNodeName,omitempty"`
 	WorkerMemoryLimitGi int       `yaml:"workerMemoryLimitGi,omitempty" json:"workerMemoryLimitGi,omitempty"`
-	GatewayNodePort     int       `yaml:"gatewayNodePort,omitempty" json:"gatewayNodePort,omitempty"`
+	ModelsPVC           string    `yaml:"models_pvc,omitempty" json:"models_pvc,omitempty"`
+	BackendPVC          string    `yaml:"backend_pvc,omitempty" json:"backend_pvc,omitempty"`
 	HPA                 HPAConfig `yaml:"hpa" json:"hpa"`
 	CPA                 CPAConfig `yaml:"cpa" json:"cpa"`
 }

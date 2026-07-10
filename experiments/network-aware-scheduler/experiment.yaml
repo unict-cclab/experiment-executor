@@ -264,7 +264,9 @@ tools:
     workerBasePort: 19100
     workerNodeName: ""
     workerMemoryLimitGi: 0
-    gatewayNodePort: 30080
+    proxyNodePort: 30080
+    models_pvc: localai-shared-models-pvc
+    backend_pvc: localai-backend-all-pvc
 
   chaosInjector:
     enabled: true
