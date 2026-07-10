@@ -63,6 +63,17 @@ Execute all configured runs:
 executor run -c experiments/network-aware-scheduler/experiment.yaml
 ```
 
+Execute existing experiment files sequentially and generate comparative plots:
+
+```bash
+executor suite -c experiments/scheduler-comparison/suite.yaml
+```
+
+A suite contains a name, optional output directory, and at least two experiment
+files. Each experiment keeps its own runs, plots, and summary. Suite output
+contains overlaid mean time-series, summary bar charts, combined CSV files, and
+`summary.json`.
+
 `run` is mutating. In particular, the `recreate` lifecycle deletes cluster VMs
 without an additional interactive prompt because that destructive policy is
 explicit in the experiment.
@@ -95,17 +106,37 @@ directory.
 
 ### Build different dependency versions
 
-Override any bundled version at build time:
+Override bundled tool refs at build time:
 
 ```bash
 docker build -t experiment-executor:custom \
-  --build-arg PROXMOX_K3S_VERSION=v0.9.0 \
-  --build-arg LOAD_GEN_REF=v0.0.1 \
-  --build-arg SCHEDULER_PLUGINS_REF=sophos-v0.2.0 \
-  --build-arg DESCHEDULER_REF=sophos-v0.0.1 \
-  --build-arg CHAOS_INJECTOR_REF=v0.0.1 \
+  --build-arg PROXMOX_K3S_VERSION=<release> \
+  --build-arg LOAD_GEN_REF=<tag-or-commit> \
+  --build-arg SCHEDULER_PLUGINS_REF=<tag-or-commit> \
+  --build-arg DESCHEDULER_REF=<tag-or-commit> \
+  --build-arg CHAOS_INJECTOR_REF=<tag-or-commit> \
   .
 ```
+
+## Tool integration contract
+
+The executor translates its experiment configuration into the native inputs of
+the bundled tools:
+
+| Executor configuration | Tool input |
+| --- | --- |
+| `tools.proxmoxK3s.config` | `proxmox-k3s` YAML passed to cluster lifecycle commands |
+| `tools.schedulerPlugins.values` | scheduler-plugins Helm values |
+| `tools.descheduler.policy`, `interval`, `dryRun`, `values` | descheduler Helm values |
+| `tools.chaosInjector.*` | documented `chaos-injector` environment variables |
+| `tools.loadGen.config` | `load-gen run -c` YAML, augmented with discovered endpoints |
+| `tools.application.*` | Go-template values for the selected benchmark application |
+
+`schedulerName` only selects the scheduler written into application Pods;
+`schedulerPlugins.enabled` independently controls whether this executor installs
+the scheduler chart. `proxyNodePort: 0` lets Kubernetes allocate a port, which
+the executor discovers before generating Load Gen endpoints. A fixed NodePort
+must be unique in the cluster.
 
 ## Native development
 

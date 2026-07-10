@@ -1,0 +1,7 @@
+name: scheduler-comparison
+outputDir: results
+experiments:
+  - name: network-aware
+    config: ../network-aware-scheduler/experiment.yaml
+  - name: custom-autoscaler
+    config: ../custom-pod-autoscaler/experiment.yaml

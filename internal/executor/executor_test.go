@@ -198,6 +198,12 @@ func TestRenderLocalAIApplication(t *testing.T) {
 	if count := strings.Count(rendered, "name: localai-worker-cluster-1-"); count != 3 {
 		t.Errorf("rendered %d LocalAI workers, want 3", count)
 	}
+	if count := strings.Count(rendered, "preferredDuringSchedulingIgnoredDuringExecution:"); count != 4 {
+		t.Errorf("rendered %d app-node preferences, want 4 (master plus workers)", count)
+	}
+	if count := strings.Count(rendered, "tolerations:\n      - operator: Exists"); count != 1 {
+		t.Errorf("rendered %d gateway tolerations, want 1", count)
+	}
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	for document := 1; ; document++ {
 		var value any

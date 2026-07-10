@@ -14,6 +14,6 @@ application:
   workerBasePort: 19100
   workerNodeName: ""
   workerMemoryLimitGi: 0
-  proxyNodePort: 30080
+  proxyNodePort: 30090
   models_pvc: localai-shared-models-pvc
   backend_pvc: localai-backend-all-pvc

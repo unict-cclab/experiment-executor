@@ -168,7 +168,7 @@ tools:
     values:
       scheduler:
         name: scheduler-plugins-scheduler
-        image: ghcr.io/unict-cclab/kube-scheduler:sophos-v0.2.0
+        image: ghcr.io/unict-cclab/kube-scheduler:sophos-v0.2.7
         replicaCount: 1
         leaderElect: false
         affinity:
@@ -214,7 +214,7 @@ tools:
     values:
       image:
         repository: ghcr.io/unict-cclab/descheduler
-        tag: sophos-v0.0.2
+        tag: sophos-v0.0.4
         pullPolicy: IfNotPresent
     policy:
       apiVersion: "descheduler/v1alpha2"
@@ -264,7 +264,7 @@ tools:
     workerBasePort: 19100
     workerNodeName: ""
     workerMemoryLimitGi: 0
-    proxyNodePort: 30080
+    proxyNodePort: 30090
     models_pvc: localai-shared-models-pvc
     backend_pvc: localai-backend-all-pvc
 

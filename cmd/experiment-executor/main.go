@@ -28,6 +28,8 @@ func main() {
 		err = planCommand(os.Args[2:])
 	case "run":
 		err = runCommand(os.Args[2:])
+	case "suite":
+		err = suiteCommand(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 		return
@@ -38,6 +40,23 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func suiteCommand(args []string) error {
+	flags := flag.NewFlagSet("suite", flag.ContinueOnError)
+	configPath := flags.String("config", "suite.yaml", "suite configuration file")
+	flags.StringVar(configPath, "c", "suite.yaml", "suite configuration file")
+	dryRun := flags.Bool("dry-run", false, "render experiments sequentially without changing external state")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	suite, entries, err := config.LoadSuite(*configPath)
+	if err != nil {
+		return err
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return executor.RunSuite(ctx, suite, entries, executor.Options{DryRun: *dryRun})
 }
 
 func runCommand(args []string) error {
@@ -105,9 +124,11 @@ Usage:
   experiment-executor validate -c <experiment.yaml>
   experiment-executor plan -c <experiment.yaml> [--json]
   experiment-executor run -c <experiment.yaml> [--dry-run]
+  experiment-executor suite -c <suite.yaml> [--dry-run]
 
 Commands:
   validate  Parse and validate an experiment without changing external state
   plan      Show its runs, phases, and artifact paths
-  run       Execute experiment runs sequentially and collect artifacts`)
+  run       Execute experiment runs sequentially and collect artifacts
+  suite     Execute multiple experiment files sequentially and compare results`)
 }

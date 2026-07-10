@@ -4,3 +4,4 @@ results
 experiments/*/config
 experiments/*/runs
 experiments/*/summary.json
+experiments/*/results

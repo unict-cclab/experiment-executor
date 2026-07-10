@@ -534,6 +534,29 @@ func (experiment *Experiment) validateTools(prefix string, tools ToolConfig) []s
 	if tools.Application.ProxyNodes != "all" && tools.Application.ProxyNodes != "workers" && tools.Application.ProxyNodes != "none" {
 		problems = append(problems, prefix+".application.proxyNodes must be all, workers, or none")
 	}
+	if p := tools.Application.ProxyNodePort; p != 0 && (p < 30000 || p > 32767) {
+		problems = append(problems, prefix+".application.proxyNodePort must be 0 or in range 30000–32767")
+	}
+	if tools.Application.Name == "localai" {
+		app := tools.Application
+		if app.PortBind < 1 || app.PortBind > 65535 {
+			problems = append(problems, prefix+".application.portbind must be in range 1–65535")
+		}
+		if strings.TrimSpace(app.P2PToken) == "" {
+			problems = append(problems, prefix+".application.p2pToken must not be empty")
+		}
+		if app.NumWorker < 1 {
+			problems = append(problems, prefix+".application.numWorker must be positive")
+		}
+		if app.WorkerBasePort < 1 || app.WorkerBasePort+app.NumWorker-1 > 65535 {
+			problems = append(problems, prefix+".application worker ports must be in range 1–65535")
+		}
+		for field, name := range map[string]string{"models_pvc": app.ModelsPVC, "backend_pvc": app.BackendPVC} {
+			if name != "" && !validName.MatchString(name) {
+				problems = append(problems, prefix+".application."+field+" must be a lowercase DNS-style name")
+			}
+		}
+	}
 	if tools.Application.HPA.Enabled && tools.Application.CPA.Enabled {
 		problems = append(problems, prefix+".application must not enable both hpa and cpa")
 	}

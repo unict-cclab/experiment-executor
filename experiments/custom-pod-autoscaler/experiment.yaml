@@ -170,7 +170,7 @@ tools:
     values:
       scheduler:
         name: scheduler-plugins-scheduler
-        image: ghcr.io/unict-cclab/kube-scheduler:sophos-v0.2.0
+        image: ghcr.io/unict-cclab/kube-scheduler:sophos-v0.2.7
         replicaCount: 1
         leaderElect: false
         affinity:
@@ -216,7 +216,7 @@ tools:
     values:
       image:
         repository: ghcr.io/unict-cclab/descheduler
-        tag: sophos-v0.0.2
+        tag: sophos-v0.0.4
         pullPolicy: IfNotPresent
     policy:
       apiVersion: "descheduler/v1alpha2"
@@ -265,7 +265,7 @@ tools:
       targetCPUUtilizationPercentage: 70
     cpa:
       enabled: true
-      image: 192.168.1.61/library/custom-pod-autoscaler:latest
+      image: ghcr.io/unict-cclab/custom-pod-autoscaler:v0.0.2
       imagePullPolicy: IfNotPresent
       intervalMillis: 15000
       minReplicas: 2
