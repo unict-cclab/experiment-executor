@@ -229,11 +229,13 @@ tools:
                 podProtections:
                   defaultDisabled:
                     - "PodsWithLocalStorage"
-            - name: "HighNetworkCost"
+            - name: "NetworkAware"
               args:
                 minPodAgeSeconds: 60
+                minPodIndex: 0
                 minCommunicationCost: 0
                 minCostImprovement: 0
+                ignoreSameZoneNetworkCost: true
                 namespaces:
                   include:
                     - "default"
@@ -243,11 +245,11 @@ tools:
           plugins:
             deschedule:
               enabled:
-                - "HighNetworkCost"
+                - "NetworkAware"
 
   application:
     name: onlineboutique
-    template: ../../../apps/onlineboutique/templates/manifest.yaml.tmpl
+    template: ../../../benchmark-apps/onlineboutique/templates/manifest.yaml.tmpl
     namespace: default
     group: onlineboutique
     # schedulerName is rendered into Pods; schedulerPlugins.enabled only controls
@@ -296,7 +298,7 @@ tools:
   loadGen:
     config:
       name: onlineboutique
-      locustfile: ../../../apps/onlineboutique/locustfile.py
+      locustfile: ../../../benchmark-apps/onlineboutique/locustfile.py
       warmup_s: 10
       sample_interval_s: 1
       slo_ms: 250

@@ -199,6 +199,13 @@ validated by its own tool during execution.
 See [`experiments/network-aware-scheduler/experiment.yaml`](experiments/network-aware-scheduler/experiment.yaml)
 for a complete example.
 
+Application templates can receive app-specific values through
+`tools.application.parameters`. The executor also provides `group`,
+`schedulerName`, and the discovered `proxyNodes`, and supports the `until` and
+`add` template functions used by LocalAI. See
+[`experiments/localai/application.example.yaml`](experiments/localai/application.example.yaml)
+for a LocalAI application fragment with all of its parameters.
+
 Application scheduler selection is independent from scheduler installation.
 `tools.schedulerPlugins.enabled: false` means the executor will not install the
 scheduler-plugins Helm chart. You can still render Pods for a scheduler already

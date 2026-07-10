@@ -1,0 +1,18 @@
+# LocalAI application fragment for tools.application in an experiment file.
+application:
+  name: localai
+  template: ../../../benchmark-apps/localai/templates/manifest.yaml.tmpl
+  namespace: local-ai
+  group: cluster-1
+  schedulerName: default-scheduler
+  proxyNodes: workers
+  parameters:
+    portbind: 8080
+    p2pToken: CHANGE_ME_p2p_token
+    masterHostname: ""
+    useGPU: false
+    numWorker: 3
+    workerBasePort: 19100
+    workerNodeName: ""
+    workerMemoryLimitGi: 0
+    gatewayNodePort: 30080

@@ -1,14 +1,17 @@
 package executor
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/unict-cclab/experiment-executor/internal/config"
+	"gopkg.in/yaml.v3"
 )
 
 func TestDryRunRendersArtifactsWithoutExternalCommands(t *testing.T) {
@@ -99,7 +102,7 @@ func TestDryRunRendersArtifactsWithoutExternalCommands(t *testing.T) {
 }
 
 func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
-	templatePath, err := filepath.Abs(filepath.Join("..", "..", "..", "apps", "onlineboutique", "templates", "manifest.yaml.tmpl"))
+	templatePath, err := filepath.Abs(filepath.Join("..", "..", "..", "benchmark-apps", "onlineboutique", "templates", "manifest.yaml.tmpl"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,6 +156,61 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 				t.Fatalf("count(%q) = %d, want %d", tc.want, count, tc.wantCount)
 			}
 		})
+	}
+}
+
+func TestRenderLocalAIApplication(t *testing.T) {
+	templatePath, err := filepath.Abs(filepath.Join("..", "..", "..", "benchmark-apps", "localai", "templates", "manifest.yaml.tmpl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	experiment := &config.Experiment{
+		SourceDir: dir,
+		Tools: config.ToolConfig{Application: config.ApplicationConfig{
+			Name: "localai", Template: templatePath, Namespace: "local-ai", Group: "cluster-1",
+			SchedulerName: "default-scheduler", ProxyNodes: "workers",
+			Parameters: map[string]any{
+				"group": "must-not-override", "portbind": 8080, "p2pToken": "test-token",
+				"masterHostname": "", "useGPU": false, "numWorker": 3,
+				"workerBasePort": 19100, "workerNodeName": "", "workerMemoryLimitGi": 0,
+				"gatewayNodePort": 30080,
+			},
+		}},
+	}
+	runner := &Runner{experiment: experiment}
+	files := runFiles{application: filepath.Join(dir, "application.yaml")}
+	nodes := []nodeInfo{{Name: "control-plane", Worker: false}, {Name: "worker-01", Worker: true}}
+	if err := runner.renderApplication(*experiment, files, nodes); err != nil {
+		t.Fatalf("renderApplication() error = %v", err)
+	}
+	data, err := os.ReadFile(files.application)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rendered := string(data)
+	for _, expected := range []string{
+		"name: local-ai-cluster-1", "schedulerName: default-scheduler", "--p2ptoken",
+		"test-token", "nodePort: 30080", "name: gateway-cluster-1-worker-01",
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Errorf("rendered LocalAI manifest does not contain %q", expected)
+		}
+	}
+	if count := strings.Count(rendered, "name: localai-worker-cluster-1-"); count != 3 {
+		t.Errorf("rendered %d LocalAI workers, want 3", count)
+	}
+	if strings.Contains(rendered, "must-not-override") {
+		t.Error("application parameters overrode executor-owned group")
+	}
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	for document := 1; ; document++ {
+		var value any
+		if err := decoder.Decode(&value); err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatalf("rendered LocalAI YAML document %d is invalid: %v", document, err)
+		}
 	}
 }
 

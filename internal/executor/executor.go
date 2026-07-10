@@ -489,7 +489,20 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 	}
 	sort.Strings(selected)
 	templatePath := r.experiment.ResolvePath(experiment.Tools.Application.Template)
-	tmpl, err := template.New(filepath.Base(templatePath)).Option("missingkey=error").ParseFiles(templatePath)
+	templateFunctions := template.FuncMap{
+		"until": func(n int) []int {
+			if n < 0 {
+				n = 0
+			}
+			values := make([]int, n)
+			for i := range values {
+				values[i] = i
+			}
+			return values
+		},
+		"add": func(a, b int) int { return a + b },
+	}
+	tmpl, err := template.New(filepath.Base(templatePath)).Funcs(templateFunctions).Option("missingkey=error").ParseFiles(templatePath)
 	if err != nil {
 		return fmt.Errorf("parsing application template: %w", err)
 	}
@@ -500,61 +513,63 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 	defer file.Close()
 	hpa := experiment.Tools.Application.HPA
 	cpa := experiment.Tools.Application.CPA
-	values := map[string]any{
-		"schedulerName": experiment.Tools.Application.SchedulerName,
-		"group":         experiment.Tools.Application.Group,
-		"proxyNodes":    selected,
-		"hpaServices": []string{
-			"currencyservice",
-			"productcatalogservice",
-			"checkoutservice",
-			"shippingservice",
-			"cartservice",
-			"redis-cart",
-			"emailservice",
-			"paymentservice",
-			"frontend",
-			"recommendationservice",
-			"adservice",
-		},
-		"cpaServices": []string{
-			"currencyservice",
-			"productcatalogservice",
-			"checkoutservice",
-			"shippingservice",
-			"cartservice",
-			"emailservice",
-			"paymentservice",
-			"frontend",
-			"recommendationservice",
-			"adservice",
-		},
-		"minReplicas":   experiment.Tools.Application.MinReplicas,
-		"proxyNodePort": experiment.Tools.Application.ProxyNodePort,
-		"hpa": map[string]any{
-			"enabled":                        hpa.Enabled,
-			"minReplicas":                    hpa.MinReplicas,
-			"maxReplicas":                    hpa.MaxReplicas,
-			"targetCPUUtilizationPercentage": hpa.TargetCPUUtilizationPercentage,
-		},
-		"cpa": map[string]any{
-			"enabled":                  cpa.Enabled,
-			"image":                    cpa.Image,
-			"imagePullPolicy":          cpa.ImagePullPolicy,
-			"intervalMillis":           cpa.IntervalMillis,
-			"minReplicas":              cpa.MinReplicas,
-			"maxReplicas":              cpa.MaxReplicas,
-			"prometheusURL":            cpa.PrometheusURL,
-			"targetResponseTimeMillis": cpa.TargetResponseTimeMillis,
-			"targetPercentage":         cpa.TargetPercentage,
-			"timeRange":                cpa.TimeRange,
-			"redisImage":               cpa.RedisImage,
-			"redisHost":                cpa.RedisHost,
-			"kp":                       cpa.KP,
-			"ki":                       cpa.KI,
-			"kd":                       cpa.KD,
-			"downscaleStabilization":   cpa.DownscaleStabilization,
-		},
+	values := make(map[string]any, len(experiment.Tools.Application.Parameters)+8)
+	for key, value := range experiment.Tools.Application.Parameters {
+		values[key] = value
+	}
+	values["schedulerName"] = experiment.Tools.Application.SchedulerName
+	values["group"] = experiment.Tools.Application.Group
+	values["proxyNodes"] = selected
+	values["hpaServices"] = []string{
+		"currencyservice",
+		"productcatalogservice",
+		"checkoutservice",
+		"shippingservice",
+		"cartservice",
+		"redis-cart",
+		"emailservice",
+		"paymentservice",
+		"frontend",
+		"recommendationservice",
+		"adservice",
+	}
+	values["cpaServices"] = []string{
+		"currencyservice",
+		"productcatalogservice",
+		"checkoutservice",
+		"shippingservice",
+		"cartservice",
+		"emailservice",
+		"paymentservice",
+		"frontend",
+		"recommendationservice",
+		"adservice",
+	}
+	values["minReplicas"] = experiment.Tools.Application.MinReplicas
+	values["proxyNodePort"] = experiment.Tools.Application.ProxyNodePort
+	values["hpa"] = map[string]any{
+		"enabled":                        hpa.Enabled,
+		"minReplicas":                    hpa.MinReplicas,
+		"maxReplicas":                    hpa.MaxReplicas,
+		"targetCPUUtilizationPercentage": hpa.TargetCPUUtilizationPercentage,
+	}
+	values["cpa"] = map[string]any{
+		"enabled":                  cpa.Enabled,
+		"image":                    cpa.Image,
+		"imagePullPolicy":          cpa.ImagePullPolicy,
+		"intervalMillis":           cpa.IntervalMillis,
+		"minReplicas":              cpa.MinReplicas,
+		"maxReplicas":              cpa.MaxReplicas,
+		"prometheusURL":            cpa.PrometheusURL,
+		"targetResponseTimeMillis": cpa.TargetResponseTimeMillis,
+		"targetPercentage":         cpa.TargetPercentage,
+		"timeRange":                cpa.TimeRange,
+		"redisImage":               cpa.RedisImage,
+		"redisHost":                cpa.RedisHost,
+		"kp":                       cpa.KP,
+		"ki":                       cpa.KI,
+		"kd":                       cpa.KD,
+		"downscaleStabilization":   cpa.DownscaleStabilization,
 	}
 	if err := tmpl.ExecuteTemplate(file, filepath.Base(templatePath), values); err != nil {
 		return fmt.Errorf("rendering application template: %w", err)

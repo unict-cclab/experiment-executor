@@ -196,16 +196,17 @@ type ChaosInjectorConfig struct {
 }
 
 type ApplicationConfig struct {
-	Name          string    `yaml:"name" json:"name"`
-	Template      string    `yaml:"template" json:"template"`
-	Namespace     string    `yaml:"namespace" json:"namespace"`
-	Group         string    `yaml:"group" json:"group"`
-	SchedulerName string    `yaml:"schedulerName" json:"schedulerName"`
-	ProxyNodes    string    `yaml:"proxyNodes" json:"proxyNodes"`
-	MinReplicas   int       `yaml:"minReplicas" json:"minReplicas"`
-	ProxyNodePort int       `yaml:"proxyNodePort" json:"proxyNodePort"`
-	HPA           HPAConfig `yaml:"hpa" json:"hpa"`
-	CPA           CPAConfig `yaml:"cpa" json:"cpa"`
+	Name          string         `yaml:"name" json:"name"`
+	Template      string         `yaml:"template" json:"template"`
+	Namespace     string         `yaml:"namespace" json:"namespace"`
+	Group         string         `yaml:"group" json:"group"`
+	SchedulerName string         `yaml:"schedulerName" json:"schedulerName"`
+	ProxyNodes    string         `yaml:"proxyNodes" json:"proxyNodes"`
+	MinReplicas   int            `yaml:"minReplicas" json:"minReplicas"`
+	ProxyNodePort int            `yaml:"proxyNodePort" json:"proxyNodePort"`
+	Parameters    map[string]any `yaml:"parameters,omitempty" json:"parameters,omitempty"`
+	HPA           HPAConfig      `yaml:"hpa" json:"hpa"`
+	CPA           CPAConfig      `yaml:"cpa" json:"cpa"`
 }
 
 type HPAConfig struct {
