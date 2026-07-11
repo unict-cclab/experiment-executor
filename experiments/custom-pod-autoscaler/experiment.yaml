@@ -87,7 +87,6 @@ tools:
 
       clusters:
         - name: ctx-cluster-01
-          kubeconfig_path: ../../../kubeconfig-ctx-cluster-01
           pod_cidr: 10.42.0.0/16
           service_cidr: 10.43.0.0/16
           k3s:
