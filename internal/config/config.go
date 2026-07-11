@@ -655,6 +655,33 @@ func (tools ToolConfig) ApplicationNamespaceLabels() map[string]string {
 	return labels
 }
 
+// MonitoringEnabled reports whether any configured cluster installs the
+// kube-prometheus-stack monitoring addon.
+func (tools ToolConfig) MonitoringEnabled() bool {
+	clusters, ok := tools.ProxmoxK3s.Config["clusters"].([]any)
+	if !ok {
+		return false
+	}
+	for _, rawCluster := range clusters {
+		cluster, ok := rawCluster.(map[string]any)
+		if !ok {
+			continue
+		}
+		addons, ok := cluster["addons"].(map[string]any)
+		if !ok {
+			continue
+		}
+		monitoring, ok := addons["monitoring"].(map[string]any)
+		if !ok {
+			continue
+		}
+		if enabled, _ := monitoring["enabled"].(bool); enabled {
+			return true
+		}
+	}
+	return false
+}
+
 func istioEnabled(proxmoxConfig map[string]any) bool {
 	clusters, ok := proxmoxConfig["clusters"].([]any)
 	if !ok {

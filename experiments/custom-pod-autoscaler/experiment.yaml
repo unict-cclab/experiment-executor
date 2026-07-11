@@ -287,6 +287,7 @@ tools:
     nodeGroupLabel: topology.kubernetes.io/zone
     nodeSelector: nodepool=app
     networkInterface: flannel.1
+    hostNetwork: false
     enableLatency: false
     enableBandwidth: false
     enablePacketLoss: false

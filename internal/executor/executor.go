@@ -179,6 +179,10 @@ func (r *Runner) runOne(ctx context.Context, experiment config.Experiment, plann
 			if err := r.configureObservability(ctx, experiment, files); err != nil {
 				return err
 			}
+		case "reset-prometheus":
+			if err := r.resetPrometheus(ctx, files); err != nil {
+				return err
+			}
 		case "install-scheduler":
 			if err := r.installScheduler(ctx, experiment, files); err != nil {
 				return err
@@ -360,6 +364,16 @@ func (r *Runner) configureObservability(ctx context.Context, experiment config.E
 		}
 	}
 	return nil
+}
+
+func (r *Runner) resetPrometheus(ctx context.Context, files runFiles) error {
+	const serviceProxy = "/api/v1/namespaces/observability/services/http:prometheus-stack-kube-prom-prometheus:9090/proxy"
+	deleteSeries := serviceProxy + `/api/v1/admin/tsdb/delete_series?match%5B%5D=%7B__name__%3D~%22.%2B%22%7D`
+	if err := r.command(ctx, files, "prometheus-delete-series", strings.NewReader(""), r.kubectl(), "--kubeconfig", files.kubeconfig, "create", "--raw", deleteSeries, "-f", "-"); err != nil {
+		return err
+	}
+	cleanTombstones := serviceProxy + "/api/v1/admin/tsdb/clean_tombstones"
+	return r.command(ctx, files, "prometheus-clean-tombstones", strings.NewReader(""), r.kubectl(), "--kubeconfig", files.kubeconfig, "create", "--raw", cleanTombstones, "-f", "-")
 }
 
 func (r *Runner) installScheduler(ctx context.Context, experiment config.Experiment, files runFiles) error {

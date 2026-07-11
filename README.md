@@ -258,18 +258,22 @@ Every run has explicit phases:
 
 1. provision or reset the cluster;
 2. configure mon-agent and Mentat;
-3. install scheduler-plugins when enabled;
-4. install the descheduler Helm release when enabled;
-5. create the application namespace and apply derived addon labels;
-6. render and deploy the application into its configured namespace;
-7. generate and deploy cross-zone network chaos when enabled;
-8. invoke Load Gen;
-9. collect configurations, logs, metrics, plots, and summaries;
-10. remove injected chaos and clean up according to the experiment lifecycle policy.
+3. delete all Prometheus series and clean their tombstones when monitoring is enabled;
+4. install scheduler-plugins when enabled;
+5. install the descheduler Helm release when enabled;
+6. create the application namespace and apply derived addon labels;
+7. render and deploy the application into its configured namespace;
+8. generate and deploy cross-zone network chaos when enabled;
+9. invoke Load Gen;
+10. collect configurations, logs, metrics, plots, and summaries;
+11. remove injected chaos and clean up according to the experiment lifecycle policy.
 
 The executor snapshots every resolved input, writes one log per external
 command, and records run status in `run.json`. Descheduler is installed as a
 managed Helm release and uninstalled on success, failure, or interruption.
+The bundled monitoring configuration enables the Prometheus admin API. Before
+each run, the executor clears retained samples through that API while preserving
+the Prometheus PVC.
 Chaos resources are generated as `config/network-chaos.yaml` and
 removed during cleanup, including when a later phase fails.
 

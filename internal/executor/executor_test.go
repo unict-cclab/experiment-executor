@@ -301,6 +301,27 @@ func TestConfigureObservabilityPatchesExplicitSettings(t *testing.T) {
 	assertLogContains(t, files.logs, "mentat-config.log", "SLEEP_SECONDS=7")
 }
 
+func TestResetPrometheusDeletesSeriesAndCleansTombstones(t *testing.T) {
+	dir := t.TempDir()
+	kubectl := fakeCommand(t, dir, "kubectl")
+	files := runFiles{
+		logs:       filepath.Join(dir, "logs"),
+		kubeconfig: filepath.Join(dir, "kubeconfig"),
+	}
+	if err := os.MkdirAll(files.logs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	experiment := config.Experiment{Commands: config.Commands{Kubectl: kubectl}}
+	runner := &Runner{experiment: &experiment}
+
+	if err := runner.resetPrometheus(context.Background(), files); err != nil {
+		t.Fatalf("resetPrometheus() error = %v", err)
+	}
+
+	assertLogContains(t, files.logs, "prometheus-delete-series.log", "/api/v1/admin/tsdb/delete_series", "match%5B%5D=", "-f -")
+	assertLogContains(t, files.logs, "prometheus-clean-tombstones.log", "/api/v1/admin/tsdb/clean_tombstones", "-f -")
+}
+
 func fakeCommand(t *testing.T, dir, name string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)

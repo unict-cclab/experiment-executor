@@ -69,3 +69,27 @@ func TestReuseLifecycleResetsAfterFirstRun(t *testing.T) {
 		t.Fatalf("second phases = %v", second)
 	}
 }
+
+func TestMonitoringAddsPrometheusResetToEveryRun(t *testing.T) {
+	experiment := &config.Experiment{
+		Runs: 2,
+		Tools: config.ToolConfig{ProxmoxK3s: config.ProxmoxK3sConfig{Config: map[string]any{
+			"clusters": []any{map[string]any{
+				"addons": map[string]any{"monitoring": map[string]any{"enabled": true}},
+			}},
+		}}},
+	}
+
+	for _, run := range Build(experiment).Runs {
+		found := false
+		for _, phase := range run.Phases {
+			if phase == "reset-prometheus" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("run %s phases = %v; reset-prometheus is missing", run.ID, run.Phases)
+		}
+	}
+}

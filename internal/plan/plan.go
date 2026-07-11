@@ -80,6 +80,9 @@ func phasesFor(experiment config.Experiment, runNumber int) []string {
 	if experiment.Tools.ProxmoxK3s.MonAgent().Enabled || experiment.Tools.ProxmoxK3s.Mentat().Enabled {
 		result = append(result, "configure-observability")
 	}
+	if experiment.Tools.MonitoringEnabled() {
+		result = append(result, "reset-prometheus")
+	}
 	if experiment.Tools.SchedulerPlugins.Enabled {
 		result = append(result, "install-scheduler")
 	}
