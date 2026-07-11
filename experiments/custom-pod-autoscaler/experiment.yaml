@@ -300,16 +300,6 @@ tools:
     config:
       name: custom-pod-autoscaler
       locustfile: ../../../benchmark-apps/onlineboutique/locustfile.py
-      host: http://192.168.1.65:30080
-      endpoints:
-        - url: http://192.168.1.65:30080
-          zone: zone-a
-        - url: http://192.168.1.66:30080
-          zone: zone-a
-        - url: http://192.168.1.67:30080
-          zone: zone-b
-        - url: http://192.168.1.68:30080
-          zone: zone-b
       warmup_s: 10
       sample_interval_s: 1
       slo_ms: 250
