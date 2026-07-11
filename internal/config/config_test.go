@@ -189,6 +189,7 @@ tools:
         config: {clusters: []}
       chaosInjector:
         enabled: true
+        hostNetwork: true
         enableLatency: false
         enableBandwidth: true
         crossZoneBandwidthBytesPerSecond: "1250000"
@@ -209,7 +210,7 @@ tools:
 		t.Fatalf("Load() error = %v", err)
 	}
 	chaos := experiment.Tools.ChaosInjector
-	if *chaos.EnableLatency || !*chaos.EnableBandwidth || !*chaos.EnablePacketLoss || chaos.CrossZoneBandwidthBytesPerSecond != "1250000" || chaos.PacketLoss != "1.5" {
+	if !chaos.HostNetwork || *chaos.EnableLatency || !*chaos.EnableBandwidth || !*chaos.EnablePacketLoss || chaos.CrossZoneBandwidthBytesPerSecond != "1250000" || chaos.PacketLoss != "1.5" {
 		t.Fatalf("chaos config = %#v", chaos)
 	}
 }

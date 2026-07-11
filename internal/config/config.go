@@ -185,6 +185,7 @@ type ChaosInjectorConfig struct {
 	NodeGroupLabel                   string `yaml:"nodeGroupLabel" json:"nodeGroupLabel"`
 	NodeSelector                     string `yaml:"nodeSelector" json:"nodeSelector"`
 	NetworkInterface                 string `yaml:"networkInterface" json:"networkInterface"`
+	HostNetwork                      bool   `yaml:"hostNetwork" json:"hostNetwork"`
 	EnableLatency                    *bool  `yaml:"enableLatency,omitempty" json:"enableLatency,omitempty"`
 	EnableBandwidth                  *bool  `yaml:"enableBandwidth,omitempty" json:"enableBandwidth,omitempty"`
 	EnablePacketLoss                 *bool  `yaml:"enablePacketLoss,omitempty" json:"enablePacketLoss,omitempty"`
