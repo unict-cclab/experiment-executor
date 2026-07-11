@@ -302,15 +302,22 @@ tools:
       zone_distribution:
         type: mixed
         parts:
-          - type: constant
+          - type: constant_weights
             duration: 5m
-            primary_zone: zone-a
-            spread: 0
-          - type: linear
+            weights:
+              zone-a: 1
+              zone-b: 0
+              zone-c: 0
+          - type: linear_weights
             duration: 5m
-            primary_zone: zone-a
-            start_spread: 0
-            end_spread: 1
+            start_weights:
+              zone-a: 1
+              zone-b: 0
+              zone-c: 0
+            end_weights:
+              zone-a: 0
+              zone-b: 1
+              zone-c: 0
       kubernetes:
         enabled: true
         namespace: local-ai
