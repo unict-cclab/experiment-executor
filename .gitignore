@@ -3,5 +3,7 @@
 /results/
 /experiments/*/config/
 /experiments/*/runs/
+/experiments/*/csv/
+/experiments/*/plots/
 /experiments/*/summary.json
 /experiments/*/results/
