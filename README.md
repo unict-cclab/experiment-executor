@@ -272,12 +272,12 @@ removed during cleanup, including when a later phase fails.
 
 ## Run artifacts
 
-Load Gen owns the plots and summary of each run. The experiment summary
-aggregates matching metrics across successful runs and reports the
-sample count, mean, sample standard deviation, minimum, and maximum. Aggregate
-time-series plots remain future work;
-they should show the across-run mean with a variability band rather than hiding
-unstable runs behind a mean alone.
+Load Gen owns the plots for each run and the experiment-level aggregate plots.
+The executor invokes `load-gen aggregate` after all runs, producing canonical
+mean time-series CSV files and plots under the experiment's `csv/` and `plots/`
+directories. The executor's experiment summary aggregates matching numeric
+metrics across successful run summaries. Suite comparisons are also delegated
+to Load Gen.
 
 
 ## Application

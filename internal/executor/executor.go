@@ -86,7 +86,20 @@ func Run(ctx context.Context, experiment *config.Experiment, options Options) er
 	if options.DryRun {
 		return nil
 	}
-	return aggregateRunSummaries(experiment)
+	if err := aggregateRunSummaries(experiment); err != nil {
+		return err
+	}
+	return runner.aggregatePlots(ctx, experiment)
+}
+
+func (r *Runner) aggregatePlots(ctx context.Context, experiment *config.Experiment) error {
+	cmd := exec.CommandContext(ctx, r.loadGen(), "aggregate", "--experiment-dir", experiment.SourceDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("generating experiment aggregate plots: %w", err)
+	}
+	return nil
 }
 
 func (r *Runner) runOne(ctx context.Context, experiment config.Experiment, planned plan.Run) (runErr error) {
