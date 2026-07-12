@@ -73,8 +73,8 @@ A suite contains a name, optional output directory, and at least two experiment
 files. Each experiment keeps its own runs, plots, and summary. Suite output
 contains overlaid mean time-series for input rate, successful throughput,
 failed request rate, windowed P95 response time, and total replicas. Summary
-bars compare failure percentage, whole-experiment P95, mean throughput, P95
-scheduling time, and mean replicas. It also includes the corresponding combined
+bars compare failure percentage, whole-experiment P95, mean throughput, mean
+pod creation-to-scheduled time, and mean replicas. It also includes the corresponding combined
 CSV files and `summary.json`.
 
 `run` is mutating. In particular, the `recreate` lifecycle deletes cluster VMs
