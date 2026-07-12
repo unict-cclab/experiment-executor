@@ -167,7 +167,7 @@ tools:
     values:
       scheduler:
         name: scheduler-plugins-scheduler
-        image: ghcr.io/unict-cclab/kube-scheduler:v0.2.11
+        image: ghcr.io/unict-cclab/kube-scheduler:sophos-v0.2.12
         replicaCount: 1
         leaderElect: false
         affinity:
