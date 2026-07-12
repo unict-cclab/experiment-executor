@@ -167,10 +167,10 @@ tools:
 		t.Fatalf("Load() error = %v", err)
 	}
 	chaos := experiment.Tools.ChaosInjector
-	if chaos.NodeGroupLabel != "topology.kubernetes.io/zone" || chaos.NetworkInterface != "flannel.1" || chaos.CrossZoneLatency != "50ms" {
+	if chaos.NodeGroupLabel != "topology.kubernetes.io/zone" || chaos.NetworkInterface != "flannel.1" || chaos.DefaultCrossZoneLatency != "50ms" {
 		t.Fatalf("chaos defaults = %#v", chaos)
 	}
-	if chaos.Jitter != "0ms" || chaos.Correlation != "0" || chaos.PacketLoss != "0" {
+	if chaos.DefaultCrossZonePacketLoss != "0" {
 		t.Fatalf("chaos defaults = %#v", chaos)
 	}
 	if chaos.EnableLatency == nil || !*chaos.EnableLatency || chaos.EnableBandwidth == nil || *chaos.EnableBandwidth || chaos.EnablePacketLoss == nil || *chaos.EnablePacketLoss {
@@ -192,9 +192,9 @@ tools:
         hostNetwork: true
         enableLatency: false
         enableBandwidth: true
-        crossZoneBandwidthBytesPerSecond: "1250000"
+        defaultCrossZoneBandwidthBytesPerSecond: "1250000"
         enablePacketLoss: true
-        packetLoss: 1.5
+        defaultCrossZonePacketLoss: 1.5
       application:
         name: app
         template: app.tmpl
@@ -210,12 +210,53 @@ tools:
 		t.Fatalf("Load() error = %v", err)
 	}
 	chaos := experiment.Tools.ChaosInjector
-	if !chaos.HostNetwork || *chaos.EnableLatency || !*chaos.EnableBandwidth || !*chaos.EnablePacketLoss || chaos.CrossZoneBandwidthBytesPerSecond != "1250000" || chaos.PacketLoss != "1.5" {
+	if !chaos.HostNetwork || *chaos.EnableLatency || !*chaos.EnableBandwidth || !*chaos.EnablePacketLoss || chaos.DefaultCrossZoneBandwidthBytesPerSecond != "1250000" || chaos.DefaultCrossZonePacketLoss != "1.5" {
 		t.Fatalf("chaos config = %#v", chaos)
 	}
 }
 
-func TestLoadAcceptsNoOpChaosInjector(t *testing.T) {
+func TestLoadAcceptsZoneLinkRules(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "app.tmpl"), []byte("test"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	content := `name: chaos
+tools:
+  proxmoxK3s:
+    config: {clusters: []}
+  chaosInjector:
+    enabled: true
+    zoneLinks:
+      - from: cloud
+        to: fog
+        latency: 20ms
+        bandwidthBytesPerSecond: "10000000"
+        packetLoss: "0.1"
+        bidirectional: true
+      - from: fog
+        to: edge-a
+        latency: 8ms
+  application:
+    name: app
+    template: app.tmpl
+  loadGen:
+    config: {pattern: {type: constant}}
+`
+	path := filepath.Join(dir, "experiment.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	experiment, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	rules := experiment.Tools.ChaosInjector.ZoneLinks
+	if len(rules) != 2 || rules[0].From != "cloud" || rules[0].To != "fog" || rules[0].Latency != "20ms" || rules[0].BandwidthBytesPerSecond != "10000000" || rules[0].PacketLoss != "0.1" || !rules[0].Bidirectional {
+		t.Fatalf("zone link rules = %#v", rules)
+	}
+}
+
+func TestLoadRejectsNoOpChaosInjector(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "app.tmpl"), []byte("test"), 0o600); err != nil {
 		t.Fatal(err)
@@ -239,13 +280,9 @@ tools:
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	experiment, err := Load(path)
-	if err != nil {
+	_, err := Load(path)
+	if err == nil || !strings.Contains(err.Error(), "must enable at least one impairment") {
 		t.Fatalf("Load() error = %v", err)
-	}
-	chaos := experiment.Tools.ChaosInjector
-	if *chaos.EnableLatency || *chaos.EnableBandwidth || *chaos.EnablePacketLoss {
-		t.Fatalf("chaos config = %#v", chaos)
 	}
 }
 

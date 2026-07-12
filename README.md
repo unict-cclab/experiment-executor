@@ -131,7 +131,7 @@ the bundled tools:
 | `tools.proxmoxK3s.config` | `proxmox-k3s` YAML passed to cluster lifecycle commands |
 | `tools.schedulerPlugins.values` | scheduler-plugins Helm values |
 | `tools.descheduler.policy`, `interval`, `dryRun`, `values` | descheduler Helm values |
-| `tools.chaosInjector.*` | documented `chaos-injector` environment variables |
+| `tools.chaosInjector.*` | documented `chaos-injector` environment variables; `zoneLinks` customizes latency, bandwidth, and packet loss per directional zone pair |
 | `tools.loadGen.config` | `load-gen run -c` YAML, augmented with discovered endpoints |
 | `tools.application.*` | Go-template values for the selected benchmark application |
 

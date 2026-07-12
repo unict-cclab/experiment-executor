@@ -167,7 +167,7 @@ tools:
     values:
       scheduler:
         name: scheduler-plugins-scheduler
-        image: ghcr.io/unict-cclab/kube-scheduler:sophos-v0.2.9
+        image: ghcr.io/unict-cclab/kube-scheduler:v0.2.11
         replicaCount: 1
         leaderElect: false
         affinity:
@@ -282,13 +282,17 @@ tools:
     networkInterface: flannel.1
     hostNetwork: false
     enableLatency: true
-    enableBandwidth: false
-    enablePacketLoss: false
-    crossZoneLatency: 100ms
-    crossZoneBandwidthBytesPerSecond: "1250000"
-    packetLoss: "0"
-    jitter: 0ms
-    correlation: "0"
+    enableBandwidth: true
+    enablePacketLoss: true
+    defaultCrossZoneLatency: 100ms
+    defaultCrossZoneBandwidthBytesPerSecond: "1250000"
+    defaultCrossZonePacketLoss: "0"
+    zoneLinks:
+      - from: zone-a
+        to: zone-b
+        latency: 35ms
+        packetLoss: "0.25"
+        bidirectional: true
 
   loadGen:
     config:
@@ -310,22 +314,21 @@ tools:
       zone_distribution:
         type: mixed
         parts:
+          # Send the first half of the run entirely through zone-a.
           - type: constant_weights
             duration: 5m
             weights:
               zone-a: 1
               zone-b: 0
-              zone-c: 0
+          # Then shift traffic progressively from zone-a to zone-b.
           - type: linear_weights
             duration: 5m
             start_weights:
               zone-a: 1
               zone-b: 0
-              zone-c: 0
             end_weights:
               zone-a: 0
               zone-b: 1
-              zone-c: 0
       kubernetes:
         enabled: true
         namespace: default

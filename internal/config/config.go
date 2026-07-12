@@ -181,19 +181,29 @@ type DeschedulerConfig struct {
 }
 
 type ChaosInjectorConfig struct {
-	Enabled                          bool   `yaml:"enabled" json:"enabled"`
-	NodeGroupLabel                   string `yaml:"nodeGroupLabel" json:"nodeGroupLabel"`
-	NodeSelector                     string `yaml:"nodeSelector" json:"nodeSelector"`
-	NetworkInterface                 string `yaml:"networkInterface" json:"networkInterface"`
-	HostNetwork                      bool   `yaml:"hostNetwork" json:"hostNetwork"`
-	EnableLatency                    *bool  `yaml:"enableLatency,omitempty" json:"enableLatency,omitempty"`
-	EnableBandwidth                  *bool  `yaml:"enableBandwidth,omitempty" json:"enableBandwidth,omitempty"`
-	EnablePacketLoss                 *bool  `yaml:"enablePacketLoss,omitempty" json:"enablePacketLoss,omitempty"`
-	CrossZoneLatency                 string `yaml:"crossZoneLatency" json:"crossZoneLatency"`
-	CrossZoneBandwidthBytesPerSecond string `yaml:"crossZoneBandwidthBytesPerSecond" json:"crossZoneBandwidthBytesPerSecond"`
-	PacketLoss                       string `yaml:"packetLoss" json:"packetLoss"`
-	Jitter                           string `yaml:"jitter" json:"jitter"`
-	Correlation                      string `yaml:"correlation" json:"correlation"`
+	Enabled                                 bool             `yaml:"enabled" json:"enabled"`
+	NodeGroupLabel                          string           `yaml:"nodeGroupLabel" json:"nodeGroupLabel"`
+	NodeSelector                            string           `yaml:"nodeSelector" json:"nodeSelector"`
+	NetworkInterface                        string           `yaml:"networkInterface" json:"networkInterface"`
+	HostNetwork                             bool             `yaml:"hostNetwork" json:"hostNetwork"`
+	EnableLatency                           *bool            `yaml:"enableLatency,omitempty" json:"enableLatency,omitempty"`
+	EnableBandwidth                         *bool            `yaml:"enableBandwidth,omitempty" json:"enableBandwidth,omitempty"`
+	EnablePacketLoss                        *bool            `yaml:"enablePacketLoss,omitempty" json:"enablePacketLoss,omitempty"`
+	DefaultCrossZoneLatency                 string           `yaml:"defaultCrossZoneLatency" json:"defaultCrossZoneLatency"`
+	DefaultCrossZoneBandwidthBytesPerSecond string           `yaml:"defaultCrossZoneBandwidthBytesPerSecond" json:"defaultCrossZoneBandwidthBytesPerSecond"`
+	DefaultCrossZonePacketLoss              string           `yaml:"defaultCrossZonePacketLoss" json:"defaultCrossZonePacketLoss"`
+	ZoneLinks                               []ZoneLinkConfig `yaml:"zoneLinks,omitempty" json:"zoneLinks,omitempty"`
+}
+
+// ZoneLinkConfig overrides network properties for one directed zone pair.
+// Empty properties inherit the corresponding global ChaosInjectorConfig value.
+type ZoneLinkConfig struct {
+	From                    string `yaml:"from" json:"from"`
+	To                      string `yaml:"to" json:"to"`
+	Latency                 string `yaml:"latency,omitempty" json:"latency,omitempty"`
+	BandwidthBytesPerSecond string `yaml:"bandwidthBytesPerSecond,omitempty" json:"bandwidthBytesPerSecond,omitempty"`
+	PacketLoss              string `yaml:"packetLoss,omitempty" json:"packetLoss,omitempty"`
+	Bidirectional           bool   `yaml:"bidirectional,omitempty" json:"bidirectional,omitempty"`
 }
 
 type ApplicationConfig struct {
@@ -395,20 +405,14 @@ func applyDefaults(experiment *Experiment) {
 		value := false
 		chaos.EnablePacketLoss = &value
 	}
-	if chaos.CrossZoneLatency == "" {
-		chaos.CrossZoneLatency = "50ms"
+	if chaos.DefaultCrossZoneLatency == "" {
+		chaos.DefaultCrossZoneLatency = "50ms"
 	}
-	if chaos.PacketLoss == "" {
-		chaos.PacketLoss = "0"
+	if chaos.DefaultCrossZonePacketLoss == "" {
+		chaos.DefaultCrossZonePacketLoss = "0"
 	}
 	if chaos.NetworkInterface == "" {
 		chaos.NetworkInterface = "flannel.1"
-	}
-	if chaos.Jitter == "" {
-		chaos.Jitter = "0ms"
-	}
-	if chaos.Correlation == "" {
-		chaos.Correlation = "0"
 	}
 }
 
@@ -497,26 +501,60 @@ func (experiment *Experiment) validateTools(prefix string, tools ToolConfig) []s
 		latencyEnabled := tools.ChaosInjector.EnableLatency != nil && *tools.ChaosInjector.EnableLatency
 		bandwidthEnabled := tools.ChaosInjector.EnableBandwidth != nil && *tools.ChaosInjector.EnableBandwidth
 		packetLossEnabled := tools.ChaosInjector.EnablePacketLoss != nil && *tools.ChaosInjector.EnablePacketLoss
+		if !latencyEnabled && !bandwidthEnabled && !packetLossEnabled {
+			problems = append(problems, prefix+".chaosInjector must enable at least one impairment when enabled")
+		}
 		if latencyEnabled {
-			if duration, err := time.ParseDuration(tools.ChaosInjector.CrossZoneLatency); err != nil || duration <= 0 {
-				problems = append(problems, prefix+".chaosInjector.crossZoneLatency must be a positive duration")
+			if duration, err := time.ParseDuration(tools.ChaosInjector.DefaultCrossZoneLatency); err != nil || duration <= 0 {
+				problems = append(problems, prefix+".chaosInjector.defaultCrossZoneLatency must be a positive duration")
 			}
 		}
-		if duration, err := time.ParseDuration(tools.ChaosInjector.Jitter); err != nil || duration < 0 {
-			problems = append(problems, prefix+".chaosInjector.jitter must be a non-negative duration")
-		}
 		if bandwidthEnabled {
-			if _, err := parsePositiveFloat(tools.ChaosInjector.CrossZoneBandwidthBytesPerSecond); err != nil {
-				problems = append(problems, prefix+".chaosInjector.crossZoneBandwidthBytesPerSecond must be a positive bytes-per-second value")
+			if _, err := parsePositiveFloat(tools.ChaosInjector.DefaultCrossZoneBandwidthBytesPerSecond); err != nil {
+				problems = append(problems, prefix+".chaosInjector.defaultCrossZoneBandwidthBytesPerSecond must be a positive bytes-per-second value")
 			}
 		}
 		if packetLossEnabled {
-			if _, err := parsePercentage(tools.ChaosInjector.PacketLoss); err != nil {
-				problems = append(problems, prefix+".chaosInjector.packetLoss must be a percentage from 0 to 100")
+			if _, err := parsePercentage(tools.ChaosInjector.DefaultCrossZonePacketLoss); err != nil {
+				problems = append(problems, prefix+".chaosInjector.defaultCrossZonePacketLoss must be a percentage from 0 to 100")
 			}
 		}
 		if strings.TrimSpace(tools.ChaosInjector.NetworkInterface) == "" {
 			problems = append(problems, prefix+".chaosInjector.networkInterface is required when enabled")
+		}
+		seenZonePairs := map[string]bool{}
+		for i, rule := range tools.ChaosInjector.ZoneLinks {
+			field := fmt.Sprintf("%s.chaosInjector.zoneLinks[%d]", prefix, i)
+			if strings.TrimSpace(rule.From) == "" || strings.TrimSpace(rule.To) == "" || rule.From == rule.To {
+				problems = append(problems, field+" must name two different zones")
+			}
+			if rule.Latency != "" {
+				if duration, err := time.ParseDuration(rule.Latency); err != nil || duration <= 0 {
+					problems = append(problems, field+".latency must be a positive duration")
+				}
+			}
+			if rule.BandwidthBytesPerSecond != "" {
+				if _, err := parsePositiveFloat(rule.BandwidthBytesPerSecond); err != nil {
+					problems = append(problems, field+".bandwidthBytesPerSecond must be a positive bytes-per-second value")
+				}
+			}
+			if rule.PacketLoss != "" {
+				if _, err := parsePercentage(rule.PacketLoss); err != nil {
+					problems = append(problems, field+".packetLoss must be a percentage from 0 to 100")
+				}
+			}
+			pair := rule.From + "\x00" + rule.To
+			if seenZonePairs[pair] {
+				problems = append(problems, field+" duplicates an earlier directed zone pair")
+			}
+			seenZonePairs[pair] = true
+			if rule.Bidirectional {
+				reverse := rule.To + "\x00" + rule.From
+				if seenZonePairs[reverse] {
+					problems = append(problems, field+" duplicates an earlier reverse zone pair")
+				}
+				seenZonePairs[reverse] = true
+			}
 		}
 	}
 	requireFile(prefix+".application.template", tools.Application.Template)

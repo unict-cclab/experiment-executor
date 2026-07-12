@@ -409,6 +409,14 @@ func (r *Runner) resetResources(ctx context.Context, experiment config.Experimen
 
 func (r *Runner) deployChaos(ctx context.Context, experiment config.Experiment, files runFiles) error {
 	chaos := experiment.Tools.ChaosInjector
+	zoneLinks := make([]string, 0, len(chaos.ZoneLinks)*2)
+	for _, rule := range chaos.ZoneLinks {
+		properties := strings.Join([]string{rule.Latency, rule.BandwidthBytesPerSecond, rule.PacketLoss}, ";")
+		zoneLinks = append(zoneLinks, rule.From+">"+rule.To+"="+properties)
+		if rule.Bidirectional {
+			zoneLinks = append(zoneLinks, rule.To+">"+rule.From+"="+properties)
+		}
+	}
 	env := []string{
 		"KUBECONFIG=" + files.kubeconfig,
 		"KUBECTL=" + r.kubectl(),
@@ -419,11 +427,10 @@ func (r *Runner) deployChaos(ctx context.Context, experiment config.Experiment, 
 		"ENABLE_LATENCY=" + boolEnv(chaos.EnableLatency),
 		"ENABLE_BANDWIDTH=" + boolEnv(chaos.EnableBandwidth),
 		"ENABLE_PACKET_LOSS=" + boolEnv(chaos.EnablePacketLoss),
-		"CROSS_ZONE_LATENCY=" + chaos.CrossZoneLatency,
-		"CROSS_ZONE_BANDWIDTH_BYTES_PER_SECOND=" + chaos.CrossZoneBandwidthBytesPerSecond,
-		"PACKET_LOSS=" + chaos.PacketLoss,
-		"JITTER=" + chaos.Jitter,
-		"CORRELATION=" + chaos.Correlation,
+		"DEFAULT_CROSS_ZONE_LATENCY=" + chaos.DefaultCrossZoneLatency,
+		"DEFAULT_CROSS_ZONE_BANDWIDTH_BYTES_PER_SECOND=" + chaos.DefaultCrossZoneBandwidthBytesPerSecond,
+		"DEFAULT_CROSS_ZONE_PACKET_LOSS=" + chaos.DefaultCrossZonePacketLoss,
+		"ZONE_LINKS=" + strings.Join(zoneLinks, ","),
 	}
 	return r.commandEnv(ctx, files, "chaos-deploy", nil, env, r.chaosInjector(), "deploy", files.chaosManifest)
 }

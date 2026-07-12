@@ -169,7 +169,7 @@ tools:
     values:
       scheduler:
         name: scheduler-plugins-scheduler
-        image: ghcr.io/unict-cclab/kube-scheduler:sophos-v0.2.7
+        image: ghcr.io/unict-cclab/kube-scheduler:v0.2.11
         replicaCount: 1
         leaderElect: false
         affinity:
@@ -282,21 +282,6 @@ tools:
     proxyNodes: all
     proxyNodePort: 30080
 
-  chaosInjector:
-    enabled: true
-    nodeGroupLabel: topology.kubernetes.io/zone
-    nodeSelector: nodepool=app
-    networkInterface: flannel.1
-    hostNetwork: false
-    enableLatency: false
-    enableBandwidth: false
-    enablePacketLoss: false
-    crossZoneLatency: 100ms
-    crossZoneBandwidthBytesPerSecond: "1250000"
-    packetLoss: "0"
-    jitter: 0ms
-    correlation: "0"
-
   loadGen:
     config:
       name: custom-pod-autoscaler
@@ -312,10 +297,11 @@ tools:
         period: 10m
         duration: 30m
       zone_distribution:
-        type: constant
+        type: constant_weights
         duration: 30m
-        primary_zone: zone-a
-        spread: 1
+        weights:
+          zone-a: 1
+          zone-b: 1
       kubernetes:
         enabled: true
         namespace: default
