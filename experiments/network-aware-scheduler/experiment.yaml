@@ -160,14 +160,14 @@ tools:
                 - ManagementOnly=true:NoSchedule
 
   schedulerPlugins:
-    enabled: false
+    enabled: true
     chart: /opt/experiment-executor/charts/scheduler-plugins
     release: scheduler-plugins
     namespace: scheduler-plugins
     values:
       scheduler:
         name: scheduler-plugins-scheduler
-        image: ghcr.io/unict-cclab/kube-scheduler:sophos-v0.2.7
+        image: ghcr.io/unict-cclab/kube-scheduler:sophos-v0.2.9
         replicaCount: 1
         leaderElect: false
         affinity:
@@ -198,10 +198,18 @@ tools:
         tolerations: []
       plugins:
         enabled:
-          #- NetworkAware
-          - LoadAwareResourcesBalancedAllocation
-        disabled: []
-      pluginConfig: []
+          - NetworkAware
+        queueSort:
+          enabled:
+            - NetworkAware
+          disabled:
+            - '"*"'
+      pluginConfig:
+        - name: NetworkAware
+          args:
+            apiVersion: kubescheduler.config.k8s.io/v1
+            kind: NetworkAwareArgs
+            ignoreSameZoneNetworkCost: true
 
   descheduler:
     enabled: true
@@ -237,35 +245,35 @@ tools:
                 ignoreSameZoneNetworkCost: true
                 namespaces:
                   include:
-                    - "local-ai"
+                    - "default"
                 labelSelector:
                   matchLabels:
-                    group: cluster-1
+                    group: onlineboutique
+                  matchExpressions:
+                    - key: component
+                      operator: NotIn
+                      values:
+                        - node-proxy
           plugins:
             deschedule:
               enabled:
                 - "NetworkAware"
 
   application:
-    name: localai
-    template: ../../../benchmark-apps/localai/templates/manifest.yaml.tmpl
-    namespace: local-ai
-    group: cluster-1
+    name: onlineboutique
+    template: ../../../benchmark-apps/onlineboutique/templates/manifest.yaml.tmpl
+    namespace: default
+    group: onlineboutique
     # schedulerName is rendered into Pods; schedulerPlugins.enabled only controls
     # whether this executor installs scheduler-plugins.
-    schedulerName: default-scheduler
-    proxyNodes: workers
-    portbind: 8080
-    p2pToken: CHANGE_ME_p2p_token
-    masterHostname: ""
-    useGPU: false
-    numWorker: 3
-    workerBasePort: 19100
-    workerNodeName: ""
-    workerMemoryLimitGi: 0
-    proxyNodePort: 30090
-    models_pvc: localai-shared-models-pvc
-    backend_pvc: localai-backend-all-pvc
+    schedulerName: scheduler-plugins-scheduler
+    minReplicas: 1
+    hpa:
+      enabled: false
+    cpa:
+      enabled: false
+    proxyNodes: all
+    proxyNodePort: 30080
 
   chaosInjector:
     enabled: true
@@ -284,8 +292,8 @@ tools:
 
   loadGen:
     config:
-      name: localai
-      locustfile: ../../../benchmark-apps/localai/locustfile.py
+      name: network-aware-scheduler
+      locustfile: ../../../benchmark-apps/onlineboutique/locustfile.py
       warmup_s: 10
       sample_interval_s: 1
       slo_ms: 250
@@ -320,6 +328,6 @@ tools:
               zone-c: 0
       kubernetes:
         enabled: true
-        namespace: local-ai
+        namespace: default
         sample_interval_s: 5
-        selector: group=cluster-1
+        selector: group=onlineboutique
