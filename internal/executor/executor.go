@@ -536,6 +536,16 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 			return values
 		},
 		"add": func(a, b int) int { return a + b },
+		"indent": func(spaces int, value string) string {
+			pad := strings.Repeat(" ", spaces)
+			lines := strings.Split(value, "\n")
+			for i, line := range lines {
+				if line != "" {
+					lines[i] = pad + line
+				}
+			}
+			return strings.Join(lines, "\n")
+		},
 	}
 	tmpl, err := template.New(filepath.Base(templatePath)).Funcs(templateFunctions).Option("missingkey=error").ParseFiles(templatePath)
 	if err != nil {
@@ -563,6 +573,15 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 	values["workerMemoryLimitGi"] = experiment.Tools.Application.WorkerMemoryLimitGi
 	values["models_pvc"] = experiment.Tools.Application.ModelsPVC
 	values["backend_pvc"] = experiment.Tools.Application.BackendPVC
+	values["modelConfig"] = experiment.Tools.Application.ModelConfig
+	if experiment.Tools.Application.ModelConfig != "" {
+		modelConfigPath := r.experiment.ResolvePath(filepath.Join("models", experiment.Tools.Application.ModelConfig))
+		content, err := os.ReadFile(modelConfigPath)
+		if err != nil {
+			return fmt.Errorf("reading model config %s: %w", modelConfigPath, err)
+		}
+		values["modelConfigContent"] = string(content)
+	}
 	values["hpaServices"] = []string{
 		"currencyservice",
 		"productcatalogservice",

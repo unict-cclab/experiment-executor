@@ -225,6 +225,7 @@ type ApplicationConfig struct {
 	WorkerMemoryLimitGi int       `yaml:"workerMemoryLimitGi,omitempty" json:"workerMemoryLimitGi,omitempty"`
 	ModelsPVC           string    `yaml:"models_pvc,omitempty" json:"models_pvc,omitempty"`
 	BackendPVC          string    `yaml:"backend_pvc,omitempty" json:"backend_pvc,omitempty"`
+	ModelConfig         string    `yaml:"modelConfig,omitempty" json:"modelConfig,omitempty"`
 	HPA                 HPAConfig `yaml:"hpa" json:"hpa"`
 	CPA                 CPAConfig `yaml:"cpa" json:"cpa"`
 }
@@ -594,6 +595,9 @@ func (experiment *Experiment) validateTools(prefix string, tools ToolConfig) []s
 			if name != "" && !validName.MatchString(name) {
 				problems = append(problems, prefix+".application."+field+" must be a lowercase DNS-style name")
 			}
+		}
+		if app.ModelConfig != "" {
+			requireFile(prefix+".application.modelConfig", filepath.Join("models", app.ModelConfig))
 		}
 	}
 	if tools.Application.HPA.Enabled && tools.Application.CPA.Enabled {

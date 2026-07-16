@@ -17,3 +17,4 @@ application:
   proxyNodePort: 30090
   models_pvc: localai-shared-models-pvc
   backend_pvc: localai-backend-all-pvc
+  modelConfig: llama-3.2-3b-instruct.yaml
