@@ -258,6 +258,8 @@ tools:
     # whether this executor installs scheduler-plugins.
     schedulerName: default-scheduler
     minReplicas: 2
+    cpuRequest: 100m
+    memoryRequest: 64Mi
     hpa:
       enabled: false
       minReplicas: 2

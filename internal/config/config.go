@@ -214,6 +214,8 @@ type ApplicationConfig struct {
 	SchedulerName       string    `yaml:"schedulerName" json:"schedulerName"`
 	ProxyNodes          string    `yaml:"proxyNodes" json:"proxyNodes"`
 	MinReplicas         int       `yaml:"minReplicas" json:"minReplicas"`
+	CPURequest          string    `yaml:"cpuRequest,omitempty" json:"cpuRequest,omitempty"`
+	MemoryRequest       string    `yaml:"memoryRequest,omitempty" json:"memoryRequest,omitempty"`
 	ProxyNodePort       int       `yaml:"proxyNodePort" json:"proxyNodePort"`
 	PortBind            int       `yaml:"portbind,omitempty" json:"portbind,omitempty"`
 	P2PToken            string    `yaml:"p2pToken,omitempty" json:"p2pToken,omitempty"`
@@ -321,6 +323,14 @@ func applyDefaults(experiment *Experiment) {
 		experiment.Tools.Application.ProxyNodes = "all"
 	}
 	app := &experiment.Tools.Application
+	if app.Name == "onlineboutique" {
+		if app.CPURequest == "" {
+			app.CPURequest = "100m"
+		}
+		if app.MemoryRequest == "" {
+			app.MemoryRequest = "64Mi"
+		}
+	}
 	if app.HPA.MinReplicas == 0 {
 		app.HPA.MinReplicas = app.MinReplicas
 	}

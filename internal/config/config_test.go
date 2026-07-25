@@ -62,6 +62,36 @@ tools:
 	}
 }
 
+func TestLoadAppliesOnlineBoutiqueResourceRequestDefaults(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "app.tmpl"), []byte("test"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	content := `name: online-boutique
+tools:
+  proxmoxK3s:
+    config: {clusters: []}
+  application:
+    name: onlineboutique
+    template: app.tmpl
+  loadGen:
+    config:
+      pattern: {type: constant, rps: 1, duration: 1m}
+`
+	path := filepath.Join(dir, "experiment.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	experiment, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if experiment.Tools.Application.CPURequest != "100m" || experiment.Tools.Application.MemoryRequest != "64Mi" {
+		t.Fatalf("resource requests = cpu %q, memory %q", experiment.Tools.Application.CPURequest, experiment.Tools.Application.MemoryRequest)
+	}
+}
+
 func TestLoadAllowsCustomSchedulersWhenPluginIsDisabled(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"app.tmpl"} {

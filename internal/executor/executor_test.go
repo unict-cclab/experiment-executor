@@ -116,7 +116,7 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 			name: "hpa",
 			app: config.ApplicationConfig{
 				Name: "onlineboutique", Template: templatePath, Namespace: "default", Group: "onlineboutique",
-				SchedulerName: "default-scheduler", MinReplicas: 2,
+				SchedulerName: "default-scheduler", MinReplicas: 2, CPURequest: "150m", MemoryRequest: "96Mi",
 				HPA: config.HPAConfig{Enabled: true, MinReplicas: 2, MaxReplicas: 10, TargetCPUUtilizationPercentage: 70},
 			},
 			want:      "kind: HorizontalPodAutoscaler",
@@ -126,7 +126,7 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 			name: "cpa",
 			app: config.ApplicationConfig{
 				Name: "onlineboutique", Template: templatePath, Namespace: "default", Group: "onlineboutique",
-				SchedulerName: "default-scheduler", MinReplicas: 2,
+				SchedulerName: "default-scheduler", MinReplicas: 2, CPURequest: "150m", MemoryRequest: "96Mi",
 				CPA: config.CPAConfig{
 					Enabled: true, Image: "custom-pod-autoscaler:latest", ImagePullPolicy: "IfNotPresent",
 					IntervalMillis: 15000, MinReplicas: 2, MaxReplicas: 10,
@@ -154,6 +154,21 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 			rendered := string(data)
 			if count := strings.Count(rendered, tc.want); count != tc.wantCount {
 				t.Fatalf("count(%q) = %d, want %d", tc.want, count, tc.wantCount)
+			}
+			if count := strings.Count(rendered, "cpu: 150m\n"); count != 11 {
+				t.Fatalf("shared CPU request count = %d, want 11", count)
+			}
+			if count := strings.Count(rendered, "memory: 96Mi\n"); count != 11 {
+				t.Fatalf("shared memory request count = %d, want 11", count)
+			}
+			decoder := yaml.NewDecoder(strings.NewReader(rendered))
+			for document := 1; ; document++ {
+				var value any
+				if err := decoder.Decode(&value); err == io.EOF {
+					break
+				} else if err != nil {
+					t.Fatalf("rendered Online Boutique YAML document %d is invalid: %v", document, err)
+				}
 			}
 		})
 	}

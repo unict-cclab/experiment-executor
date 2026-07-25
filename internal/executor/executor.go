@@ -563,6 +563,8 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 	values["group"] = experiment.Tools.Application.Group
 	values["namespace"] = experiment.Tools.Application.Namespace
 	values["proxyNodes"] = selected
+	values["cpuRequest"] = experiment.Tools.Application.CPURequest
+	values["memoryRequest"] = experiment.Tools.Application.MemoryRequest
 	values["portbind"] = experiment.Tools.Application.PortBind
 	values["p2pToken"] = experiment.Tools.Application.P2PToken
 	values["masterHostname"] = experiment.Tools.Application.MasterHostname
