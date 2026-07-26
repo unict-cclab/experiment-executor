@@ -131,7 +131,8 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 					Enabled: true, Image: "custom-pod-autoscaler:latest", ImagePullPolicy: "IfNotPresent",
 					IntervalMillis: 15000, MinReplicas: 2, MaxReplicas: 10,
 					PrometheusURL: "http://prometheus/api/v1/query", TargetResponseTimeMillis: 250, TargetPercentage: 0.95,
-					TimeRange: "1m", RedisImage: "redis:7.4-alpine", RedisHost: "custom-pod-autoscaler-redis",
+					ExcludeOutboundResponseTime: true,
+					TimeRange:                   "1m", RedisImage: "redis:7.4-alpine", RedisHost: "custom-pod-autoscaler-redis",
 					KP: 1, DownscaleStabilization: 300,
 				},
 			},
@@ -160,6 +161,9 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 			}
 			if count := strings.Count(rendered, "memory: 96Mi\n"); count != 11 {
 				t.Fatalf("shared memory request count = %d, want 11", count)
+			}
+			if tc.name == "cpa" && !strings.Contains(rendered, "name: EXCLUDE_OUTBOUND_RESPONSE_TIME\n    value: \"true\"") {
+				t.Fatalf("rendered CPA missing outbound response-time setting:\n%s", rendered)
 			}
 			decoder := yaml.NewDecoder(strings.NewReader(rendered))
 			for document := 1; ; document++ {

@@ -60,6 +60,9 @@ tools:
 	if experiment.Tools.Application.HPA.MaxReplicas != 10 || experiment.Tools.Application.CPA.MaxReplicas != 10 {
 		t.Fatalf("autoscaler defaults not applied: hpa=%#v cpa=%#v", experiment.Tools.Application.HPA, experiment.Tools.Application.CPA)
 	}
+	if experiment.Tools.Application.CPA.ExcludeOutboundResponseTime {
+		t.Fatal("excludeOutboundResponseTime should default to false")
+	}
 }
 
 func TestLoadAppliesOnlineBoutiqueResourceRequestDefaults(t *testing.T) {

@@ -240,22 +240,23 @@ type HPAConfig struct {
 }
 
 type CPAConfig struct {
-	Enabled                  bool    `yaml:"enabled" json:"enabled"`
-	Image                    string  `yaml:"image" json:"image"`
-	ImagePullPolicy          string  `yaml:"imagePullPolicy" json:"imagePullPolicy"`
-	IntervalMillis           int     `yaml:"intervalMillis" json:"intervalMillis"`
-	MinReplicas              int     `yaml:"minReplicas" json:"minReplicas"`
-	MaxReplicas              int     `yaml:"maxReplicas" json:"maxReplicas"`
-	PrometheusURL            string  `yaml:"prometheusURL" json:"prometheusURL"`
-	TargetResponseTimeMillis float64 `yaml:"targetResponseTimeMillis" json:"targetResponseTimeMillis"`
-	TargetPercentage         float64 `yaml:"targetPercentage" json:"targetPercentage"`
-	TimeRange                string  `yaml:"timeRange" json:"timeRange"`
-	RedisImage               string  `yaml:"redisImage" json:"redisImage"`
-	RedisHost                string  `yaml:"redisHost" json:"redisHost"`
-	KP                       float64 `yaml:"kp" json:"kp"`
-	KI                       float64 `yaml:"ki" json:"ki"`
-	KD                       float64 `yaml:"kd" json:"kd"`
-	DownscaleStabilization   int     `yaml:"downscaleStabilization" json:"downscaleStabilization"`
+	Enabled                     bool    `yaml:"enabled" json:"enabled"`
+	Image                       string  `yaml:"image" json:"image"`
+	ImagePullPolicy             string  `yaml:"imagePullPolicy" json:"imagePullPolicy"`
+	IntervalMillis              int     `yaml:"intervalMillis" json:"intervalMillis"`
+	MinReplicas                 int     `yaml:"minReplicas" json:"minReplicas"`
+	MaxReplicas                 int     `yaml:"maxReplicas" json:"maxReplicas"`
+	PrometheusURL               string  `yaml:"prometheusURL" json:"prometheusURL"`
+	TargetResponseTimeMillis    float64 `yaml:"targetResponseTimeMillis" json:"targetResponseTimeMillis"`
+	ExcludeOutboundResponseTime bool    `yaml:"excludeOutboundResponseTime" json:"excludeOutboundResponseTime"`
+	TargetPercentage            float64 `yaml:"targetPercentage" json:"targetPercentage"`
+	TimeRange                   string  `yaml:"timeRange" json:"timeRange"`
+	RedisImage                  string  `yaml:"redisImage" json:"redisImage"`
+	RedisHost                   string  `yaml:"redisHost" json:"redisHost"`
+	KP                          float64 `yaml:"kp" json:"kp"`
+	KI                          float64 `yaml:"ki" json:"ki"`
+	KD                          float64 `yaml:"kd" json:"kd"`
+	DownscaleStabilization      int     `yaml:"downscaleStabilization" json:"downscaleStabilization"`
 }
 
 type LoadGenConfig struct {
