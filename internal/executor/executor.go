@@ -247,7 +247,7 @@ func (r *Runner) runOne(ctx context.Context, experiment config.Experiment, plann
 				return err
 			}
 			if experiment.Tools.Application.CPA.Enabled {
-				if err := r.command(ctx, files, "application-cpa-cleanup", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "custompodautoscaler", "-n", experiment.Tools.Application.Namespace, "-l", selector, "--ignore-not-found"); err != nil {
+				if err := r.deleteCustomPodAutoscalers(ctx, experiment, files, "application-cpa-cleanup"); err != nil {
 					return err
 				}
 			}
@@ -403,8 +403,18 @@ func (r *Runner) resetResources(ctx context.Context, experiment config.Experimen
 			return err
 		}
 	}
+	if experiment.Tools.Application.CPA.Enabled {
+		if err := r.deleteCustomPodAutoscalers(ctx, experiment, files, "application-cpa-reset"); err != nil {
+			return err
+		}
+	}
 	selector := "group=" + experiment.Tools.Application.Group
 	return r.command(ctx, files, "application-reset", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "all,configmap", "-n", experiment.Tools.Application.Namespace, "-l", selector, "--ignore-not-found")
+}
+
+func (r *Runner) deleteCustomPodAutoscalers(ctx context.Context, experiment config.Experiment, files runFiles, logName string) error {
+	selector := "group=" + experiment.Tools.Application.Group
+	return r.command(ctx, files, logName, nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "custompodautoscaler", "-n", experiment.Tools.Application.Namespace, "-l", selector, "--ignore-not-found")
 }
 
 func (r *Runner) deployChaos(ctx context.Context, experiment config.Experiment, files runFiles) error {

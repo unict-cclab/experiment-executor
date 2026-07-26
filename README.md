@@ -225,6 +225,10 @@ lifecycle:
   and reset experiment resources before every run.
 
 The default is `existing`, which avoids accidental infrastructure deletion.
+For CPA-enabled applications, the pre-run resource reset deletes any
+group-matching CustomPodAutoscalers before applying the rendered application,
+so interrupted runs cannot leave autoscaler instances for the next run to
+reuse.
 
 Only reusable code or manifest assets remain references. Paths are resolved
 relative to `experiment.yaml`. The executor strictly validates orchestration

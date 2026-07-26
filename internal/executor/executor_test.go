@@ -341,6 +341,42 @@ func TestResetPrometheusDeletesSeriesAndCleansTombstones(t *testing.T) {
 	assertLogContains(t, files.logs, "prometheus-clean-tombstones.log", "/api/v1/admin/tsdb/clean_tombstones", "-f -")
 }
 
+func TestResetResourcesDeletesCustomPodAutoscalers(t *testing.T) {
+	dir := t.TempDir()
+	kubectl := fakeCommand(t, dir, "kubectl")
+	files := runFiles{
+		logs:       filepath.Join(dir, "logs"),
+		kubeconfig: filepath.Join(dir, "kubeconfig"),
+	}
+	if err := os.MkdirAll(files.logs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	experiment := config.Experiment{
+		Commands: config.Commands{Kubectl: kubectl},
+		Tools: config.ToolConfig{Application: config.ApplicationConfig{
+			Namespace: "default",
+			Group:     "onlineboutique",
+			CPA:       config.CPAConfig{Enabled: true},
+		}},
+	}
+	runner := &Runner{experiment: &experiment}
+
+	if err := runner.resetResources(context.Background(), experiment, files); err != nil {
+		t.Fatalf("resetResources() error = %v", err)
+	}
+
+	assertLogContains(
+		t,
+		files.logs,
+		"application-cpa-reset.log",
+		"delete custompodautoscaler",
+		"-n default",
+		"-l group=onlineboutique",
+		"--ignore-not-found",
+	)
+	assertLogContains(t, files.logs, "application-reset.log", "delete all,configmap")
+}
+
 func fakeCommand(t *testing.T, dir, name string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
