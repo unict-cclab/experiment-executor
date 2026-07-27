@@ -622,10 +622,10 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 	values["minReplicas"] = experiment.Tools.Application.MinReplicas
 	values["proxyNodePort"] = experiment.Tools.Application.ProxyNodePort
 	values["hpa"] = map[string]any{
-		"enabled":                        hpa.Enabled,
-		"minReplicas":                    hpa.MinReplicas,
-		"maxReplicas":                    hpa.MaxReplicas,
-		"targetCPUUtilizationPercentage": hpa.TargetCPUUtilizationPercentage,
+		"enabled":               hpa.Enabled,
+		"minReplicas":           hpa.MinReplicas,
+		"maxReplicas":           hpa.MaxReplicas,
+		"targetCPUAverageValue": hpa.TargetCPUAverageValue,
 	}
 	values["cpa"] = map[string]any{
 		"enabled":                     cpa.Enabled,

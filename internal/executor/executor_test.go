@@ -117,7 +117,7 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 			app: config.ApplicationConfig{
 				Name: "onlineboutique", Template: templatePath, Namespace: "default", Group: "onlineboutique",
 				SchedulerName: "default-scheduler", MinReplicas: 2, CPURequest: "150m", MemoryRequest: "96Mi",
-				HPA: config.HPAConfig{Enabled: true, MinReplicas: 2, MaxReplicas: 10, TargetCPUUtilizationPercentage: 70},
+				HPA: config.HPAConfig{Enabled: true, MinReplicas: 2, MaxReplicas: 10, TargetCPUAverageValue: "75m"},
 			},
 			want:      "kind: HorizontalPodAutoscaler",
 			wantCount: 11,
@@ -161,6 +161,14 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 			}
 			if count := strings.Count(rendered, "memory: 96Mi\n"); count != 11 {
 				t.Fatalf("shared memory request count = %d, want 11", count)
+			}
+			if tc.name == "hpa" {
+				if count := strings.Count(rendered, "type: AverageValue\n        averageValue: 75m"); count != 11 {
+					t.Fatalf("absolute HPA CPU target count = %d, want 11", count)
+				}
+				if strings.Contains(rendered, "averageUtilization:") {
+					t.Fatalf("rendered HPA unexpectedly uses CPU utilization:\n%s", rendered)
+				}
 			}
 			if tc.name == "cpa" && !strings.Contains(rendered, "name: EXCLUDE_OUTBOUND_RESPONSE_TIME\n    value: \"true\"") {
 				t.Fatalf("rendered CPA missing outbound response-time setting:\n%s", rendered)

@@ -233,10 +233,10 @@ type ApplicationConfig struct {
 }
 
 type HPAConfig struct {
-	Enabled                        bool `yaml:"enabled" json:"enabled"`
-	MinReplicas                    int  `yaml:"minReplicas" json:"minReplicas"`
-	MaxReplicas                    int  `yaml:"maxReplicas" json:"maxReplicas"`
-	TargetCPUUtilizationPercentage int  `yaml:"targetCPUUtilizationPercentage" json:"targetCPUUtilizationPercentage"`
+	Enabled               bool   `yaml:"enabled" json:"enabled"`
+	MinReplicas           int    `yaml:"minReplicas" json:"minReplicas"`
+	MaxReplicas           int    `yaml:"maxReplicas" json:"maxReplicas"`
+	TargetCPUAverageValue string `yaml:"targetCPUAverageValue" json:"targetCPUAverageValue"`
 }
 
 type CPAConfig struct {
@@ -341,8 +341,8 @@ func applyDefaults(experiment *Experiment) {
 	if app.HPA.MaxReplicas == 0 {
 		app.HPA.MaxReplicas = 10
 	}
-	if app.HPA.TargetCPUUtilizationPercentage == 0 {
-		app.HPA.TargetCPUUtilizationPercentage = 70
+	if app.HPA.TargetCPUAverageValue == "" {
+		app.HPA.TargetCPUAverageValue = "70m"
 	}
 	if app.CPA.ImagePullPolicy == "" {
 		app.CPA.ImagePullPolicy = "IfNotPresent"
@@ -618,8 +618,8 @@ func (experiment *Experiment) validateTools(prefix string, tools ToolConfig) []s
 		if tools.Application.HPA.MinReplicas < 1 || tools.Application.HPA.MaxReplicas < tools.Application.HPA.MinReplicas {
 			problems = append(problems, prefix+".application.hpa replicas must satisfy 1 <= minReplicas <= maxReplicas")
 		}
-		if tools.Application.HPA.TargetCPUUtilizationPercentage < 1 || tools.Application.HPA.TargetCPUUtilizationPercentage > 100 {
-			problems = append(problems, prefix+".application.hpa.targetCPUUtilizationPercentage must be from 1 to 100")
+		if strings.TrimSpace(tools.Application.HPA.TargetCPUAverageValue) == "" {
+			problems = append(problems, prefix+".application.hpa.targetCPUAverageValue must be a Kubernetes CPU quantity")
 		}
 	}
 	if tools.Application.CPA.Enabled {

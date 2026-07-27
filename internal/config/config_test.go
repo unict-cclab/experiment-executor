@@ -60,6 +60,9 @@ tools:
 	if experiment.Tools.Application.HPA.MaxReplicas != 10 || experiment.Tools.Application.CPA.MaxReplicas != 10 {
 		t.Fatalf("autoscaler defaults not applied: hpa=%#v cpa=%#v", experiment.Tools.Application.HPA, experiment.Tools.Application.CPA)
 	}
+	if experiment.Tools.Application.HPA.TargetCPUAverageValue != "70m" {
+		t.Fatalf("HPA CPU target = %q", experiment.Tools.Application.HPA.TargetCPUAverageValue)
+	}
 	if experiment.Tools.Application.CPA.ExcludeOutboundResponseTime {
 		t.Fatal("excludeOutboundResponseTime should default to false")
 	}
@@ -171,6 +174,38 @@ tools:
 	_, err := Load(path)
 	if err == nil || !strings.Contains(err.Error(), "must not enable both hpa and cpa") {
 		t.Fatalf("Load() error = %v", err)
+	}
+}
+
+func TestLoadAcceptsAbsoluteHPACPUTarget(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "app.tmpl"), []byte("test"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	content := `name: autoscaling
+tools:
+  proxmoxK3s:
+    config: {clusters: []}
+  application:
+    name: app
+    template: app.tmpl
+    hpa:
+      enabled: true
+      targetCPUAverageValue: 125m
+  loadGen:
+    config: {pattern: {type: constant}}
+`
+	path := filepath.Join(dir, "experiment.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	experiment, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got := experiment.Tools.Application.HPA.TargetCPUAverageValue; got != "125m" {
+		t.Fatalf("targetCPUAverageValue = %q, want 125m", got)
 	}
 }
 

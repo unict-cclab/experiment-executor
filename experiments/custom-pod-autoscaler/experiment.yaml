@@ -264,7 +264,7 @@ tools:
       enabled: false
       minReplicas: 2
       maxReplicas: 10
-      targetCPUUtilizationPercentage: 70
+      targetCPUAverageValue: 70m
     cpa:
       enabled: true
       image: ghcr.io/unict-cclab/custom-pod-autoscaler:v0.0.2
