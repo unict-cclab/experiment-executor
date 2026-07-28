@@ -66,6 +66,9 @@ tools:
 	if experiment.Tools.Application.CPA.ExcludeOutboundResponseTime {
 		t.Fatal("excludeOutboundResponseTime should default to false")
 	}
+	if experiment.Tools.Application.CPA.MarginRatio != 0.1 {
+		t.Fatalf("CPA margin ratio = %v, want 0.1", experiment.Tools.Application.CPA.MarginRatio)
+	}
 }
 
 func TestLoadAppliesOnlineBoutiqueResourceRequestDefaults(t *testing.T) {

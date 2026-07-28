@@ -283,6 +283,7 @@ tools:
       ki: 0
       kd: 0
       downscaleStabilization: 300
+      marginRatio: 0.1
     proxyNodes: all
     proxyNodePort: 30080
 

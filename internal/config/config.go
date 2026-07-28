@@ -257,6 +257,7 @@ type CPAConfig struct {
 	KI                          float64 `yaml:"ki" json:"ki"`
 	KD                          float64 `yaml:"kd" json:"kd"`
 	DownscaleStabilization      int     `yaml:"downscaleStabilization" json:"downscaleStabilization"`
+	MarginRatio                 float64 `yaml:"marginRatio" json:"marginRatio"`
 }
 
 type LoadGenConfig struct {
@@ -382,6 +383,9 @@ func applyDefaults(experiment *Experiment) {
 	}
 	if app.CPA.DownscaleStabilization == 0 {
 		app.CPA.DownscaleStabilization = 300
+	}
+	if app.CPA.MarginRatio == 0 {
+		app.CPA.MarginRatio = 0.1
 	}
 	if experiment.Tools.SchedulerPlugins.Release == "" {
 		experiment.Tools.SchedulerPlugins.Release = "scheduler-plugins"
@@ -643,6 +647,9 @@ func (experiment *Experiment) validateTools(prefix string, tools ToolConfig) []s
 		}
 		if tools.Application.CPA.DownscaleStabilization < 0 {
 			problems = append(problems, prefix+".application.cpa.downscaleStabilization must be non-negative")
+		}
+		if tools.Application.CPA.MarginRatio <= 0 || tools.Application.CPA.MarginRatio >= 1 {
+			problems = append(problems, prefix+".application.cpa.marginRatio must be greater than 0 and less than 1")
 		}
 	}
 	if len(tools.LoadGen.Config) == 0 {

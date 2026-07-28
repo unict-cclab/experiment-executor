@@ -133,7 +133,7 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 					PrometheusURL: "http://prometheus/api/v1/query", TargetResponseTimeMillis: 250, TargetPercentage: 0.95,
 					ExcludeOutboundResponseTime: true,
 					TimeRange:                   "1m", RedisImage: "redis:7.4-alpine", RedisHost: "custom-pod-autoscaler-redis",
-					KP: 1, DownscaleStabilization: 300,
+					KP: 1, DownscaleStabilization: 300, MarginRatio: 0.1,
 				},
 			},
 			want:      "kind: CustomPodAutoscaler",
@@ -172,6 +172,9 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 			}
 			if tc.name == "cpa" && !strings.Contains(rendered, "name: EXCLUDE_OUTBOUND_RESPONSE_TIME\n    value: \"true\"") {
 				t.Fatalf("rendered CPA missing outbound response-time setting:\n%s", rendered)
+			}
+			if tc.name == "cpa" && !strings.Contains(rendered, "name: MARGIN_RATIO\n    value: \"0.1\"") {
+				t.Fatalf("rendered CPA missing RPS-bound margin ratio:\n%s", rendered)
 			}
 			decoder := yaml.NewDecoder(strings.NewReader(rendered))
 			for document := 1; ; document++ {

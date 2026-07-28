@@ -645,6 +645,7 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 		"ki":                          cpa.KI,
 		"kd":                          cpa.KD,
 		"downscaleStabilization":      cpa.DownscaleStabilization,
+		"marginRatio":                 cpa.MarginRatio,
 	}
 	if err := tmpl.ExecuteTemplate(file, filepath.Base(templatePath), values); err != nil {
 		return fmt.Errorf("rendering application template: %w", err)
