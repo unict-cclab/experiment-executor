@@ -117,7 +117,12 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 			app: config.ApplicationConfig{
 				Name: "onlineboutique", Template: templatePath, Namespace: "default", Group: "onlineboutique",
 				SchedulerName: "default-scheduler", MinReplicas: 2, CPURequest: "150m", MemoryRequest: "96Mi",
-				HPA: config.HPAConfig{Enabled: true, MinReplicas: 2, MaxReplicas: 10, TargetCPUAverageValue: "75m"},
+				Autoscaler: map[string]any{"hpa": map[string]any{"config": map[string]any{
+					"minReplicas": 2, "maxReplicas": 10,
+					"metrics": []any{map[string]any{"type": "Resource", "resource": map[string]any{
+						"name": "cpu", "target": map[string]any{"type": "AverageValue", "averageValue": "75m"},
+					}}},
+				}}},
 			},
 			want:      "kind: HorizontalPodAutoscaler",
 			wantCount: 11,
@@ -127,14 +132,35 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 			app: config.ApplicationConfig{
 				Name: "onlineboutique", Template: templatePath, Namespace: "default", Group: "onlineboutique",
 				SchedulerName: "default-scheduler", MinReplicas: 2, CPURequest: "150m", MemoryRequest: "96Mi",
-				CPA: config.CPAConfig{
-					Enabled: true, Image: "custom-pod-autoscaler:latest", ImagePullPolicy: "IfNotPresent",
-					IntervalMillis: 15000, MinReplicas: 2, MaxReplicas: 10,
-					PrometheusURL: "http://prometheus/api/v1/query", TargetResponseTimeMillis: 250, TargetPercentage: 0.95,
-					ExcludeOutboundResponseTime: true,
-					TimeRange:                   "1m", RedisImage: "redis:7.4-alpine", RedisHost: "custom-pod-autoscaler-redis",
-					KP: 1, DownscaleStabilization: 300, MarginRatio: 0.1,
-				},
+				Autoscaler: map[string]any{"cpa": map[string]any{
+					"plugin": "sophos",
+					"config": map[string]any{
+						"image": "custom-pod-autoscaler:latest", "imagePullPolicy": "IfNotPresent",
+						"intervalMillis": 15000, "minReplicas": 2, "maxReplicas": 10,
+						"prometheusURL": "http://prometheus/api/v1/query", "targetResponseTimeMillis": 250,
+						"excludeOutboundResponseTime": true, "targetPercentage": 0.95, "timeRange": "1m",
+						"redisImage": "redis:7.4-alpine", "redisHost": "custom-pod-autoscaler-redis",
+						"kp": 1, "ki": 0, "kd": 0, "downscaleStabilizationSeconds": 300, "marginRatio": 0.1,
+					},
+				}},
+			},
+			want:      "kind: CustomPodAutoscaler",
+			wantCount: 10,
+		},
+		{
+			name: "polaris",
+			app: config.ApplicationConfig{
+				Name: "onlineboutique", Template: templatePath, Namespace: "default", Group: "onlineboutique",
+				SchedulerName: "default-scheduler", MinReplicas: 2, CPURequest: "150m", MemoryRequest: "96Mi",
+				Autoscaler: map[string]any{"cpa": map[string]any{
+					"plugin": "polaris",
+					"config": map[string]any{
+						"image": "custom-pod-autoscaler:latest", "imagePullPolicy": "IfNotPresent",
+						"intervalMillis": 15000, "minReplicas": 2, "maxReplicas": 10,
+						"prometheusURL": "http://prometheus/api/v1/query", "targetResponseTimeMillis": 250,
+						"downscaleStabilizationSeconds": 300,
+					},
+				}},
 			},
 			want:      "kind: CustomPodAutoscaler",
 			wantCount: 10,
@@ -163,18 +189,35 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 				t.Fatalf("shared memory request count = %d, want 11", count)
 			}
 			if tc.name == "hpa" {
-				if count := strings.Count(rendered, "type: AverageValue\n        averageValue: 75m"); count != 11 {
+				if count := strings.Count(rendered, "averageValue: 75m"); count != 11 {
 					t.Fatalf("absolute HPA CPU target count = %d, want 11", count)
 				}
 				if strings.Contains(rendered, "averageUtilization:") {
 					t.Fatalf("rendered HPA unexpectedly uses CPU utilization:\n%s", rendered)
 				}
 			}
-			if tc.name == "cpa" && !strings.Contains(rendered, "name: EXCLUDE_OUTBOUND_RESPONSE_TIME\n    value: \"true\"") {
+			if tc.name == "cpa" && !strings.Contains(rendered, `"excludeOutboundResponseTime":true`) {
 				t.Fatalf("rendered CPA missing outbound response-time setting:\n%s", rendered)
 			}
-			if tc.name == "cpa" && !strings.Contains(rendered, "name: MARGIN_RATIO\n    value: \"0.1\"") {
+			if tc.name == "cpa" && !strings.Contains(rendered, `"marginRatio":0.1`) {
 				t.Fatalf("rendered CPA missing RPS-bound margin ratio:\n%s", rendered)
+			}
+			if tc.name == "polaris" {
+				for _, expected := range []string{
+					`"plugin":"polaris"`,
+					`"downscaleStabilizationSeconds":300`,
+					"mountPath: /etc/custom-pod-autoscaler",
+				} {
+					if !strings.Contains(rendered, expected) {
+						t.Fatalf("rendered Polaris CPA missing %q:\n%s", expected, rendered)
+					}
+				}
+				if strings.Contains(rendered, `"excludeOutboundResponseTime"`) {
+					t.Fatalf("rendered Polaris CPA contains unsupported outbound-response setting:\n%s", rendered)
+				}
+				if strings.Contains(rendered, "custom-pod-autoscaler-redis") {
+					t.Fatalf("rendered Polaris CPA unexpectedly contains Sophos Redis resources:\n%s", rendered)
+				}
 			}
 			decoder := yaml.NewDecoder(strings.NewReader(rendered))
 			for document := 1; ; document++ {
@@ -186,6 +229,32 @@ func TestRenderOnlineBoutiqueAutoscalers(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestOnlineBoutiqueRendererValidatesAutoscalerConfiguration(t *testing.T) {
+	templatePath, err := filepath.Abs(filepath.Join("..", "..", "..", "benchmark-apps", "onlineboutique", "templates", "manifest.yaml.tmpl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	experiment := &config.Experiment{
+		SourceDir: dir,
+		Tools: config.ToolConfig{Application: config.ApplicationConfig{
+			Name: "onlineboutique", Template: templatePath, Namespace: "default", Group: "onlineboutique",
+			SchedulerName: "default-scheduler", CPURequest: "100m", MemoryRequest: "64Mi",
+			Autoscaler: map[string]any{"cpa": map[string]any{
+				"plugin": "sophos",
+				"config": map[string]any{"image": "custom-pod-autoscaler:latest"},
+			}},
+		}},
+	}
+	runner := &Runner{experiment: experiment}
+	files := runFiles{application: filepath.Join(dir, "application.yaml")}
+
+	err = runner.renderApplication(*experiment, files, nil)
+	if err == nil || !strings.Contains(err.Error(), "autoscaler.cpa.config.intervalMillis is required") {
+		t.Fatalf("renderApplication() error = %v", err)
 	}
 }
 
@@ -356,10 +425,14 @@ func TestResetResourcesDeletesCustomPodAutoscalers(t *testing.T) {
 	dir := t.TempDir()
 	kubectl := fakeCommand(t, dir, "kubectl")
 	files := runFiles{
-		logs:       filepath.Join(dir, "logs"),
-		kubeconfig: filepath.Join(dir, "kubeconfig"),
+		logs:        filepath.Join(dir, "logs"),
+		kubeconfig:  filepath.Join(dir, "kubeconfig"),
+		application: filepath.Join(dir, "application.yaml"),
 	}
 	if err := os.MkdirAll(files.logs, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(files.application, []byte("kind: CustomResource\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	experiment := config.Experiment{
@@ -367,7 +440,6 @@ func TestResetResourcesDeletesCustomPodAutoscalers(t *testing.T) {
 		Tools: config.ToolConfig{Application: config.ApplicationConfig{
 			Namespace: "default",
 			Group:     "onlineboutique",
-			CPA:       config.CPAConfig{Enabled: true},
 		}},
 	}
 	runner := &Runner{experiment: &experiment}
@@ -379,10 +451,8 @@ func TestResetResourcesDeletesCustomPodAutoscalers(t *testing.T) {
 	assertLogContains(
 		t,
 		files.logs,
-		"application-cpa-reset.log",
-		"delete custompodautoscaler",
-		"-n default",
-		"-l group=onlineboutique",
+		"application-manifest-reset.log",
+		"delete -n default -f",
 		"--ignore-not-found",
 	)
 	assertLogContains(t, files.logs, "application-reset.log", "delete all,configmap")

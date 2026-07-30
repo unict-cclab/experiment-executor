@@ -54,20 +54,8 @@ tools:
 	if experiment.Tools.Application.Group != "app" {
 		t.Fatalf("group = %q", experiment.Tools.Application.Group)
 	}
-	if experiment.Tools.Application.HPA.Enabled || experiment.Tools.Application.CPA.Enabled {
-		t.Fatalf("autoscalers should default disabled: hpa=%#v cpa=%#v", experiment.Tools.Application.HPA, experiment.Tools.Application.CPA)
-	}
-	if experiment.Tools.Application.HPA.MaxReplicas != 10 || experiment.Tools.Application.CPA.MaxReplicas != 10 {
-		t.Fatalf("autoscaler defaults not applied: hpa=%#v cpa=%#v", experiment.Tools.Application.HPA, experiment.Tools.Application.CPA)
-	}
-	if experiment.Tools.Application.HPA.TargetCPUAverageValue != "70m" {
-		t.Fatalf("HPA CPU target = %q", experiment.Tools.Application.HPA.TargetCPUAverageValue)
-	}
-	if experiment.Tools.Application.CPA.ExcludeOutboundResponseTime {
-		t.Fatal("excludeOutboundResponseTime should default to false")
-	}
-	if experiment.Tools.Application.CPA.MarginRatio != 0.1 {
-		t.Fatalf("CPA margin ratio = %v, want 0.1", experiment.Tools.Application.CPA.MarginRatio)
+	if experiment.Tools.Application.Autoscaler != nil {
+		t.Fatalf("autoscaler should default to nil: %#v", experiment.Tools.Application.Autoscaler)
 	}
 }
 
@@ -149,7 +137,7 @@ unexpected: true
 	}
 }
 
-func TestLoadRejectsBothApplicationAutoscalersEnabled(t *testing.T) {
+func TestLoadPreservesOpaqueAutoscalerConfiguration(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "app.tmpl"), []byte("test"), 0o600); err != nil {
 		t.Fatal(err)
@@ -161,11 +149,11 @@ tools:
       application:
         name: app
         template: app.tmpl
-        hpa:
-          enabled: true
-        cpa:
-          enabled: true
-          image: custom-pod-autoscaler:latest
+        autoscaler:
+          cpa:
+            plugin: future-plugin
+            config:
+              arbitraryOption: [one, two]
       loadGen:
         config: {pattern: {type: constant}}
 `
@@ -174,13 +162,17 @@ tools:
 		t.Fatal(err)
 	}
 
-	_, err := Load(path)
-	if err == nil || !strings.Contains(err.Error(), "must not enable both hpa and cpa") {
+	experiment, err := Load(path)
+	if err != nil {
 		t.Fatalf("Load() error = %v", err)
+	}
+	cpa, ok := experiment.Tools.Application.Autoscaler["cpa"].(map[string]any)
+	if !ok || cpa["plugin"] != "future-plugin" {
+		t.Fatalf("autoscaler configuration = %#v", experiment.Tools.Application.Autoscaler)
 	}
 }
 
-func TestLoadAcceptsAbsoluteHPACPUTarget(t *testing.T) {
+func TestLoadDoesNotValidateAutoscalerSpecificConfiguration(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "app.tmpl"), []byte("test"), 0o600); err != nil {
 		t.Fatal(err)
@@ -192,9 +184,10 @@ tools:
   application:
     name: app
     template: app.tmpl
-    hpa:
-      enabled: true
-      targetCPUAverageValue: 125m
+    autoscaler:
+      hpa:
+        config:
+          implementationSpecific: true
   loadGen:
     config: {pattern: {type: constant}}
 `
@@ -207,8 +200,10 @@ tools:
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if got := experiment.Tools.Application.HPA.TargetCPUAverageValue; got != "125m" {
-		t.Fatalf("targetCPUAverageValue = %q, want 125m", got)
+	hpa := experiment.Tools.Application.Autoscaler["hpa"].(map[string]any)
+	config := hpa["config"].(map[string]any)
+	if config["implementationSpecific"] != true {
+		t.Fatalf("autoscaler configuration = %#v", config)
 	}
 }
 

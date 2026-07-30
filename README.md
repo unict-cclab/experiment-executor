@@ -73,10 +73,10 @@ A suite contains a name, optional output directory, and at least two experiment
 files. Each experiment keeps its own runs, plots, and summary. Suite output
 contains overlaid mean time-series for input rate, successful throughput,
 failed request rate, windowed P95 response time, and total replicas. Summary
-bars compare failure percentage, whole-experiment P95, mean P95 across the
-configured `p95_window_s` windows, mean throughput, mean pod
-creation-to-scheduled time, and mean replicas. It also includes the corresponding combined
-CSV files and `summary.json`.
+bars compare failure percentage, SLO violation percentage, whole-experiment
+P95, mean P95 across the configured `p95_window_s` windows, mean throughput,
+mean pod creation-to-scheduled time, and mean replicas. It also includes the
+corresponding combined CSV files and `summary.json`.
 
 `run` is mutating. In particular, the `recreate` lifecycle deletes cluster VMs
 without an additional interactive prompt because that destructive policy is
@@ -135,6 +135,68 @@ the bundled tools:
 | `tools.chaosInjector.*` | documented `chaos-injector` environment variables; `zoneLinks` customizes latency, bandwidth, and packet loss per directional zone pair |
 | `tools.loadGen.config` | `load-gen run -c` YAML, augmented with discovered endpoints |
 | `tools.application.*` | Go-template values for the selected benchmark application |
+
+`tools.application.autoscaler` is deliberately opaque to the executor. It is
+passed to the application template unchanged, so the template owns defaults,
+validation, supported implementations, and manifest generation. For example:
+
+```yaml
+autoscaler:
+  hpa:
+    config:
+      minReplicas: 2
+      maxReplicas: 10
+      metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            target: {type: AverageValue, averageValue: 70m}
+```
+
+or, for a Custom Pod Autoscaler plugin:
+
+```yaml
+autoscaler:
+  cpa:
+    plugin: sophos
+    config:
+      image: ghcr.io/unict-cclab/custom-pod-autoscaler:v0.0.8
+      intervalMillis: 15000
+      minReplicas: 2
+      maxReplicas: 10
+      prometheusURL: http://prometheus:9090/api/v1/query
+      targetResponseTimeMillis: 250
+      targetPercentage: 0.95
+      timeRange: 1m
+      redisImage: redis:7.4-alpine
+      redisHost: custom-pod-autoscaler-redis
+      kp: 1
+      ki: 0
+      kd: 0
+      downscaleStabilizationSeconds: 300
+      marginRatio: 0.1
+```
+
+The executor does not interpret these fields. The selected application/plugin
+renderer validates the camelCase configuration and mounts it as a JSON file in
+the CPA container. Plugin settings are not converted to environment variables.
+
+The Online Boutique renderer also supports Polaris with `targetPercentage`
+and `timeRange` defaulting to `0.95` and `1m`:
+
+```yaml
+autoscaler:
+  cpa:
+    plugin: polaris
+    config:
+      image: ghcr.io/unict-cclab/custom-pod-autoscaler:latest
+      intervalMillis: 15000
+      minReplicas: 2
+      maxReplicas: 10
+      prometheusURL: http://prometheus.observability:9090/api/v1/query
+      targetResponseTimeMillis: 250
+      downscaleStabilizationSeconds: 300
+```
 
 `schedulerName` only selects the scheduler written into application Pods;
 `schedulerPlugins.enabled` independently controls whether this executor installs
@@ -225,10 +287,10 @@ lifecycle:
   and reset experiment resources before every run.
 
 The default is `existing`, which avoids accidental infrastructure deletion.
-For CPA-enabled applications, the pre-run resource reset deletes any
-group-matching CustomPodAutoscalers before applying the rendered application,
-so interrupted runs cannot leave autoscaler instances for the next run to
-reuse.
+Resource cleanup is based on the previously rendered application manifest.
+Consequently the executor can remove HPA, CPA, and future custom resources
+without knowing their kinds. The label-based core-resource cleanup remains as
+a fallback for application resources left by older runs.
 
 Only reusable code or manifest assets remain references. Paths are resolved
 relative to `experiment.yaml`. The executor strictly validates orchestration

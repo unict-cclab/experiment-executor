@@ -271,10 +271,6 @@ tools:
     minReplicas: 1
     cpuRequest: 100m
     memoryRequest: 64Mi
-    hpa:
-      enabled: false
-    cpa:
-      enabled: false
     proxyNodes: all
     proxyNodePort: 30080
 

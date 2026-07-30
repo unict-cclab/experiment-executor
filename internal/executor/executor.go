@@ -242,14 +242,8 @@ func (r *Runner) runOne(ctx context.Context, experiment config.Experiment, plann
 					return err
 				}
 			}
-			selector := "group=" + experiment.Tools.Application.Group
-			if err := r.command(ctx, files, "application-cleanup", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "all,configmap", "-n", experiment.Tools.Application.Namespace, "-l", selector, "--ignore-not-found"); err != nil {
+			if err := r.deleteRenderedApplication(ctx, experiment, files, "application-cleanup"); err != nil {
 				return err
-			}
-			if experiment.Tools.Application.CPA.Enabled {
-				if err := r.deleteCustomPodAutoscalers(ctx, experiment, files, "application-cpa-cleanup"); err != nil {
-					return err
-				}
 			}
 		default:
 			return fmt.Errorf("unsupported phase %q", phase)
@@ -403,18 +397,19 @@ func (r *Runner) resetResources(ctx context.Context, experiment config.Experimen
 			return err
 		}
 	}
-	if experiment.Tools.Application.CPA.Enabled {
-		if err := r.deleteCustomPodAutoscalers(ctx, experiment, files, "application-cpa-reset"); err != nil {
+	if _, err := os.Stat(files.application); err == nil {
+		if err := r.deleteRenderedApplication(ctx, experiment, files, "application-manifest-reset"); err != nil {
 			return err
 		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("checking previously rendered application: %w", err)
 	}
 	selector := "group=" + experiment.Tools.Application.Group
 	return r.command(ctx, files, "application-reset", nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "all,configmap", "-n", experiment.Tools.Application.Namespace, "-l", selector, "--ignore-not-found")
 }
 
-func (r *Runner) deleteCustomPodAutoscalers(ctx context.Context, experiment config.Experiment, files runFiles, logName string) error {
-	selector := "group=" + experiment.Tools.Application.Group
-	return r.command(ctx, files, logName, nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "custompodautoscaler", "-n", experiment.Tools.Application.Namespace, "-l", selector, "--ignore-not-found")
+func (r *Runner) deleteRenderedApplication(ctx context.Context, experiment config.Experiment, files runFiles, logName string) error {
+	return r.command(ctx, files, logName, nil, r.kubectl(), "--kubeconfig", files.kubeconfig, "delete", "-n", experiment.Tools.Application.Namespace, "-f", files.application, "--ignore-not-found")
 }
 
 func (r *Runner) deployChaos(ctx context.Context, experiment config.Experiment, files runFiles) error {
@@ -535,6 +530,70 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 	sort.Strings(selected)
 	templatePath := r.experiment.ResolvePath(experiment.Tools.Application.Template)
 	templateFunctions := template.FuncMap{
+		"fail": func(message string) (string, error) {
+			return "", errors.New(message)
+		},
+		"required": func(field string, value any) (any, error) {
+			switch typed := value.(type) {
+			case nil:
+				return nil, fmt.Errorf("%s is required", field)
+			case string:
+				if strings.TrimSpace(typed) == "" {
+					return nil, fmt.Errorf("%s is required", field)
+				}
+			case map[string]any:
+				if len(typed) == 0 {
+					return nil, fmt.Errorf("%s is required", field)
+				}
+			case []any:
+				if len(typed) == 0 {
+					return nil, fmt.Errorf("%s is required", field)
+				}
+			}
+			return value, nil
+		},
+		"default": func(fallback, value any) any {
+			if value == nil {
+				return fallback
+			}
+			return value
+		},
+		"list": func(values ...string) []string { return values },
+		"validatePositive": func(field string, value any) (string, error) {
+			number, err := templateNumber(value)
+			if err != nil || number <= 0 {
+				return "", fmt.Errorf("%s must be a positive number", field)
+			}
+			return "", nil
+		},
+		"validateNonNegative": func(field string, value any) (string, error) {
+			number, err := templateNumber(value)
+			if err != nil || number < 0 {
+				return "", fmt.Errorf("%s must be a non-negative number", field)
+			}
+			return "", nil
+		},
+		"validateOpenRange": func(field string, value any, minimum, maximum float64) (string, error) {
+			number, err := templateNumber(value)
+			if err != nil || number <= minimum || number >= maximum {
+				return "", fmt.Errorf("%s must be greater than %g and less than %g", field, minimum, maximum)
+			}
+			return "", nil
+		},
+		"toYaml": func(value any) (string, error) {
+			data, err := yaml.Marshal(value)
+			if err != nil {
+				return "", err
+			}
+			return strings.TrimSuffix(string(data), "\n"), nil
+		},
+		"toJson": func(value any) (string, error) {
+			data, err := json.Marshal(value)
+			if err != nil {
+				return "", err
+			}
+			return string(data), nil
+		},
 		"until": func(n int) []int {
 			if n < 0 {
 				n = 0
@@ -566,8 +625,6 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 		return err
 	}
 	defer file.Close()
-	hpa := experiment.Tools.Application.HPA
-	cpa := experiment.Tools.Application.CPA
 	values := make(map[string]any, 20)
 	values["schedulerName"] = experiment.Tools.Application.SchedulerName
 	values["group"] = experiment.Tools.Application.Group
@@ -594,63 +651,47 @@ func (r *Runner) renderApplication(experiment config.Experiment, files runFiles,
 		}
 		values["modelConfigContent"] = string(content)
 	}
-	values["hpaServices"] = []string{
-		"currencyservice",
-		"productcatalogservice",
-		"checkoutservice",
-		"shippingservice",
-		"cartservice",
-		"redis-cart",
-		"emailservice",
-		"paymentservice",
-		"frontend",
-		"recommendationservice",
-		"adservice",
-	}
-	values["cpaServices"] = []string{
-		"currencyservice",
-		"productcatalogservice",
-		"checkoutservice",
-		"shippingservice",
-		"cartservice",
-		"emailservice",
-		"paymentservice",
-		"frontend",
-		"recommendationservice",
-		"adservice",
-	}
 	values["minReplicas"] = experiment.Tools.Application.MinReplicas
 	values["proxyNodePort"] = experiment.Tools.Application.ProxyNodePort
-	values["hpa"] = map[string]any{
-		"enabled":               hpa.Enabled,
-		"minReplicas":           hpa.MinReplicas,
-		"maxReplicas":           hpa.MaxReplicas,
-		"targetCPUAverageValue": hpa.TargetCPUAverageValue,
-	}
-	values["cpa"] = map[string]any{
-		"enabled":                     cpa.Enabled,
-		"image":                       cpa.Image,
-		"imagePullPolicy":             cpa.ImagePullPolicy,
-		"intervalMillis":              cpa.IntervalMillis,
-		"minReplicas":                 cpa.MinReplicas,
-		"maxReplicas":                 cpa.MaxReplicas,
-		"prometheusURL":               cpa.PrometheusURL,
-		"targetResponseTimeMillis":    cpa.TargetResponseTimeMillis,
-		"excludeOutboundResponseTime": cpa.ExcludeOutboundResponseTime,
-		"targetPercentage":            cpa.TargetPercentage,
-		"timeRange":                   cpa.TimeRange,
-		"redisImage":                  cpa.RedisImage,
-		"redisHost":                   cpa.RedisHost,
-		"kp":                          cpa.KP,
-		"ki":                          cpa.KI,
-		"kd":                          cpa.KD,
-		"downscaleStabilization":      cpa.DownscaleStabilization,
-		"marginRatio":                 cpa.MarginRatio,
+	values["autoscaler"] = experiment.Tools.Application.Autoscaler
+	if values["autoscaler"] == nil {
+		values["autoscaler"] = map[string]any{}
 	}
 	if err := tmpl.ExecuteTemplate(file, filepath.Base(templatePath), values); err != nil {
 		return fmt.Errorf("rendering application template: %w", err)
 	}
 	return nil
+}
+
+func templateNumber(value any) (float64, error) {
+	switch typed := value.(type) {
+	case int:
+		return float64(typed), nil
+	case int8:
+		return float64(typed), nil
+	case int16:
+		return float64(typed), nil
+	case int32:
+		return float64(typed), nil
+	case int64:
+		return float64(typed), nil
+	case uint:
+		return float64(typed), nil
+	case uint8:
+		return float64(typed), nil
+	case uint16:
+		return float64(typed), nil
+	case uint32:
+		return float64(typed), nil
+	case uint64:
+		return float64(typed), nil
+	case float32:
+		return float64(typed), nil
+	case float64:
+		return typed, nil
+	default:
+		return 0, fmt.Errorf("not a number")
+	}
 }
 
 func (r *Runner) installDescheduler(ctx context.Context, experiment config.Experiment, files runFiles) error {

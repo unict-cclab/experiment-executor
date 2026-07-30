@@ -207,58 +207,33 @@ type ZoneLinkConfig struct {
 }
 
 type ApplicationConfig struct {
-	Name                string    `yaml:"name" json:"name"`
-	Template            string    `yaml:"template" json:"template"`
-	Namespace           string    `yaml:"namespace" json:"namespace"`
-	Group               string    `yaml:"group" json:"group"`
-	SchedulerName       string    `yaml:"schedulerName" json:"schedulerName"`
-	ProxyNodes          string    `yaml:"proxyNodes" json:"proxyNodes"`
-	MinReplicas         int       `yaml:"minReplicas" json:"minReplicas"`
-	CPURequest          string    `yaml:"cpuRequest,omitempty" json:"cpuRequest,omitempty"`
-	MemoryRequest       string    `yaml:"memoryRequest,omitempty" json:"memoryRequest,omitempty"`
-	ProxyNodePort       int       `yaml:"proxyNodePort" json:"proxyNodePort"`
-	PortBind            int       `yaml:"portbind,omitempty" json:"portbind,omitempty"`
-	P2PToken            string    `yaml:"p2pToken,omitempty" json:"p2pToken,omitempty"`
-	MasterHostname      string    `yaml:"masterHostname,omitempty" json:"masterHostname,omitempty"`
-	UseGPU              bool      `yaml:"useGPU,omitempty" json:"useGPU,omitempty"`
-	NumWorker           int       `yaml:"numWorker,omitempty" json:"numWorker,omitempty"`
-	WorkerBasePort      int       `yaml:"workerBasePort,omitempty" json:"workerBasePort,omitempty"`
-	WorkerNodeName      string    `yaml:"workerNodeName,omitempty" json:"workerNodeName,omitempty"`
-	WorkerMemoryLimitGi int       `yaml:"workerMemoryLimitGi,omitempty" json:"workerMemoryLimitGi,omitempty"`
-	ModelsPVC           string    `yaml:"models_pvc,omitempty" json:"models_pvc,omitempty"`
-	BackendPVC          string    `yaml:"backend_pvc,omitempty" json:"backend_pvc,omitempty"`
-	ModelConfig         string    `yaml:"modelConfig,omitempty" json:"modelConfig,omitempty"`
-	HPA                 HPAConfig `yaml:"hpa" json:"hpa"`
-	CPA                 CPAConfig `yaml:"cpa" json:"cpa"`
+	Name                string           `yaml:"name" json:"name"`
+	Template            string           `yaml:"template" json:"template"`
+	Namespace           string           `yaml:"namespace" json:"namespace"`
+	Group               string           `yaml:"group" json:"group"`
+	SchedulerName       string           `yaml:"schedulerName" json:"schedulerName"`
+	ProxyNodes          string           `yaml:"proxyNodes" json:"proxyNodes"`
+	MinReplicas         int              `yaml:"minReplicas" json:"minReplicas"`
+	CPURequest          string           `yaml:"cpuRequest,omitempty" json:"cpuRequest,omitempty"`
+	MemoryRequest       string           `yaml:"memoryRequest,omitempty" json:"memoryRequest,omitempty"`
+	ProxyNodePort       int              `yaml:"proxyNodePort" json:"proxyNodePort"`
+	PortBind            int              `yaml:"portbind,omitempty" json:"portbind,omitempty"`
+	P2PToken            string           `yaml:"p2pToken,omitempty" json:"p2pToken,omitempty"`
+	MasterHostname      string           `yaml:"masterHostname,omitempty" json:"masterHostname,omitempty"`
+	UseGPU              bool             `yaml:"useGPU,omitempty" json:"useGPU,omitempty"`
+	NumWorker           int              `yaml:"numWorker,omitempty" json:"numWorker,omitempty"`
+	WorkerBasePort      int              `yaml:"workerBasePort,omitempty" json:"workerBasePort,omitempty"`
+	WorkerNodeName      string           `yaml:"workerNodeName,omitempty" json:"workerNodeName,omitempty"`
+	WorkerMemoryLimitGi int              `yaml:"workerMemoryLimitGi,omitempty" json:"workerMemoryLimitGi,omitempty"`
+	ModelsPVC           string           `yaml:"models_pvc,omitempty" json:"models_pvc,omitempty"`
+	BackendPVC          string           `yaml:"backend_pvc,omitempty" json:"backend_pvc,omitempty"`
+	ModelConfig         string           `yaml:"modelConfig,omitempty" json:"modelConfig,omitempty"`
+	Autoscaler          AutoscalerConfig `yaml:"autoscaler,omitempty" json:"autoscaler,omitempty"`
 }
 
-type HPAConfig struct {
-	Enabled               bool   `yaml:"enabled" json:"enabled"`
-	MinReplicas           int    `yaml:"minReplicas" json:"minReplicas"`
-	MaxReplicas           int    `yaml:"maxReplicas" json:"maxReplicas"`
-	TargetCPUAverageValue string `yaml:"targetCPUAverageValue" json:"targetCPUAverageValue"`
-}
-
-type CPAConfig struct {
-	Enabled                     bool    `yaml:"enabled" json:"enabled"`
-	Image                       string  `yaml:"image" json:"image"`
-	ImagePullPolicy             string  `yaml:"imagePullPolicy" json:"imagePullPolicy"`
-	IntervalMillis              int     `yaml:"intervalMillis" json:"intervalMillis"`
-	MinReplicas                 int     `yaml:"minReplicas" json:"minReplicas"`
-	MaxReplicas                 int     `yaml:"maxReplicas" json:"maxReplicas"`
-	PrometheusURL               string  `yaml:"prometheusURL" json:"prometheusURL"`
-	TargetResponseTimeMillis    float64 `yaml:"targetResponseTimeMillis" json:"targetResponseTimeMillis"`
-	ExcludeOutboundResponseTime bool    `yaml:"excludeOutboundResponseTime" json:"excludeOutboundResponseTime"`
-	TargetPercentage            float64 `yaml:"targetPercentage" json:"targetPercentage"`
-	TimeRange                   string  `yaml:"timeRange" json:"timeRange"`
-	RedisImage                  string  `yaml:"redisImage" json:"redisImage"`
-	RedisHost                   string  `yaml:"redisHost" json:"redisHost"`
-	KP                          float64 `yaml:"kp" json:"kp"`
-	KI                          float64 `yaml:"ki" json:"ki"`
-	KD                          float64 `yaml:"kd" json:"kd"`
-	DownscaleStabilization      int     `yaml:"downscaleStabilization" json:"downscaleStabilization"`
-	MarginRatio                 float64 `yaml:"marginRatio" json:"marginRatio"`
-}
+// AutoscalerConfig is intentionally opaque. Application renderers own the
+// implementation-specific schema, defaults, and validation.
+type AutoscalerConfig = map[string]any
 
 type LoadGenConfig struct {
 	Config map[string]any `yaml:"config" json:"config"`
@@ -332,60 +307,6 @@ func applyDefaults(experiment *Experiment) {
 		if app.MemoryRequest == "" {
 			app.MemoryRequest = "64Mi"
 		}
-	}
-	if app.HPA.MinReplicas == 0 {
-		app.HPA.MinReplicas = app.MinReplicas
-	}
-	if app.HPA.MinReplicas == 0 {
-		app.HPA.MinReplicas = 1
-	}
-	if app.HPA.MaxReplicas == 0 {
-		app.HPA.MaxReplicas = 10
-	}
-	if app.HPA.TargetCPUAverageValue == "" {
-		app.HPA.TargetCPUAverageValue = "70m"
-	}
-	if app.CPA.ImagePullPolicy == "" {
-		app.CPA.ImagePullPolicy = "IfNotPresent"
-	}
-	if app.CPA.IntervalMillis == 0 {
-		app.CPA.IntervalMillis = 15000
-	}
-	if app.CPA.MinReplicas == 0 {
-		app.CPA.MinReplicas = app.MinReplicas
-	}
-	if app.CPA.MinReplicas == 0 {
-		app.CPA.MinReplicas = 1
-	}
-	if app.CPA.MaxReplicas == 0 {
-		app.CPA.MaxReplicas = 10
-	}
-	if app.CPA.PrometheusURL == "" {
-		app.CPA.PrometheusURL = "http://prometheus-kube-prometheus-prometheus.observability:9090/api/v1/query"
-	}
-	if app.CPA.TargetResponseTimeMillis == 0 {
-		app.CPA.TargetResponseTimeMillis = 250
-	}
-	if app.CPA.TargetPercentage == 0 {
-		app.CPA.TargetPercentage = 0.95
-	}
-	if app.CPA.TimeRange == "" {
-		app.CPA.TimeRange = "1m"
-	}
-	if app.CPA.RedisImage == "" {
-		app.CPA.RedisImage = "redis:7.4-alpine"
-	}
-	if app.CPA.RedisHost == "" {
-		app.CPA.RedisHost = "custom-pod-autoscaler-redis"
-	}
-	if app.CPA.KP == 0 {
-		app.CPA.KP = 1
-	}
-	if app.CPA.DownscaleStabilization == 0 {
-		app.CPA.DownscaleStabilization = 300
-	}
-	if app.CPA.MarginRatio == 0 {
-		app.CPA.MarginRatio = 0.1
 	}
 	if experiment.Tools.SchedulerPlugins.Release == "" {
 		experiment.Tools.SchedulerPlugins.Release = "scheduler-plugins"
@@ -613,43 +534,6 @@ func (experiment *Experiment) validateTools(prefix string, tools ToolConfig) []s
 		}
 		if app.ModelConfig != "" {
 			requireFile(prefix+".application.modelConfig", filepath.Join("models", app.ModelConfig))
-		}
-	}
-	if tools.Application.HPA.Enabled && tools.Application.CPA.Enabled {
-		problems = append(problems, prefix+".application must not enable both hpa and cpa")
-	}
-	if tools.Application.HPA.Enabled {
-		if tools.Application.HPA.MinReplicas < 1 || tools.Application.HPA.MaxReplicas < tools.Application.HPA.MinReplicas {
-			problems = append(problems, prefix+".application.hpa replicas must satisfy 1 <= minReplicas <= maxReplicas")
-		}
-		if strings.TrimSpace(tools.Application.HPA.TargetCPUAverageValue) == "" {
-			problems = append(problems, prefix+".application.hpa.targetCPUAverageValue must be a Kubernetes CPU quantity")
-		}
-	}
-	if tools.Application.CPA.Enabled {
-		if tools.Application.CPA.Image == "" {
-			problems = append(problems, prefix+".application.cpa.image is required when enabled")
-		}
-		if tools.Application.CPA.IntervalMillis < 1 {
-			problems = append(problems, prefix+".application.cpa.intervalMillis must be positive")
-		}
-		if tools.Application.CPA.MinReplicas < 1 || tools.Application.CPA.MaxReplicas < tools.Application.CPA.MinReplicas {
-			problems = append(problems, prefix+".application.cpa replicas must satisfy 1 <= minReplicas <= maxReplicas")
-		}
-		if tools.Application.CPA.PrometheusURL == "" || tools.Application.CPA.TimeRange == "" || tools.Application.CPA.RedisHost == "" {
-			problems = append(problems, prefix+".application.cpa prometheusURL, timeRange, and redisHost are required when enabled")
-		}
-		if tools.Application.CPA.TargetResponseTimeMillis <= 0 {
-			problems = append(problems, prefix+".application.cpa.targetResponseTimeMillis must be positive")
-		}
-		if tools.Application.CPA.TargetPercentage <= 0 || tools.Application.CPA.TargetPercentage > 1 {
-			problems = append(problems, prefix+".application.cpa.targetPercentage must be from 0 to 1")
-		}
-		if tools.Application.CPA.DownscaleStabilization < 0 {
-			problems = append(problems, prefix+".application.cpa.downscaleStabilization must be non-negative")
-		}
-		if tools.Application.CPA.MarginRatio <= 0 || tools.Application.CPA.MarginRatio >= 1 {
-			problems = append(problems, prefix+".application.cpa.marginRatio must be greater than 0 and less than 1")
 		}
 	}
 	if len(tools.LoadGen.Config) == 0 {
